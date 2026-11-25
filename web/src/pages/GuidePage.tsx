@@ -270,7 +270,7 @@ export function GuidePage({
       {/* EPG Grid */}
       <div className="epg-wrapper">
         <div className="epg-scroll">
-          <div style={{ width: 184 + totalWidth, position: 'relative' }}>
+          <div style={{ width: 212 + totalWidth, position: 'relative' }}>
             <div className="epg-header-row">
               <div
                 className="epg-channel-col"
@@ -291,45 +291,75 @@ export function GuidePage({
               </div>
             )}
 
-            {filteredRows.map(({ channel, programs }) => (
-              <div key={channel.id} className="epg-row">
-                <div className="epg-channel-col">
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 6,
-                    }}
-                  >
-                    <button
-                      style={{ textAlign: 'left', flex: 1 }}
-                      onClick={() => {
-                        playTivoSelectChime();
-                        onWatchLive(channel);
+            {filteredRows.map(({ channel, programs }) => {
+              const badgeText =
+                channel.network && channel.network !== 'OTA'
+                  ? channel.network.replace(/^The\s+/i, '')
+                  : channel.guideName.split('-')[0];
+
+              return (
+                <div key={channel.id} className="epg-row">
+                  <div className="epg-channel-col">
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
                       }}
-                      title="Watch channel live"
                     >
-                      <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--accent)' }}>
-                        {channel.guideNumber}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                        {channel.guideName}
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => void toggleFavorite(channel)}
-                      aria-label="Toggle favorite"
-                      style={{ padding: 5 }}
-                    >
-                      <Star
-                        size={14}
-                        color={channel.favorite ? '#93c5fd' : '#475569'}
-                        fill={channel.favorite ? '#93c5fd' : 'none'}
-                      />
-                    </button>
+                      <button
+                        style={{
+                          textAlign: 'left',
+                          flex: 1,
+                          minWidth: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 9,
+                        }}
+                        onClick={() => {
+                          playTivoSelectChime();
+                          onWatchLive(channel);
+                        }}
+                        title={`Watch ${channel.guideNumber} ${channel.guideName} live`}
+                      >
+                        <div className="epg-channel-badge">
+                          {channel.logoUrl ? (
+                            <img src={channel.logoUrl} alt={channel.guideName} loading="lazy" />
+                          ) : (
+                            <span className="epg-channel-badge-text">{badgeText}</span>
+                          )}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--accent)' }}>
+                            {channel.guideNumber}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: 'var(--text-secondary)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {channel.guideName}
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => void toggleFavorite(channel)}
+                        aria-label="Toggle favorite"
+                        style={{ padding: 4, flexShrink: 0 }}
+                      >
+                        <Star
+                          size={14}
+                          color={channel.favorite ? '#93c5fd' : '#475569'}
+                          fill={channel.favorite ? '#93c5fd' : 'none'}
+                        />
+                      </button>
+                    </div>
                   </div>
-                </div>
 
                 <div className="epg-track" style={{ width: totalWidth }}>
                   {showNowLine && <div className="epg-now-line" style={{ left: nowLineLeft }} />}
@@ -422,7 +452,8 @@ export function GuidePage({
                   })}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

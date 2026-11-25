@@ -556,21 +556,44 @@ private fun GuideTvView(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    val badgeMark = row.channel.network
+                        .takeIf { it.isNotBlank() && it != "OTA" }
+                        ?.removePrefix("The ")
+                        ?: row.channel.guideName.substringBefore("-")
                     Surface(
                         color = TivoPanel,
                         shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.dp, Color(0x18FFFFFF)),
                         modifier = Modifier
-                            .width(146.dp)
+                            .width(168.dp)
                             .height(68.dp)
                             .clickable { onWatchChannel(row.channel) },
                     ) {
-                        Column(
-                            modifier = Modifier.padding(10.dp),
-                            verticalArrangement = Arrangement.Center,
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Text(row.channel.guideNumber, color = TivoAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            Text(row.channel.guideName, color = TivoMuted, fontSize = 12.sp, maxLines = 1)
+                            Box(
+                                modifier = Modifier
+                                    .size(width = 48.dp, height = 38.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(TivoCard)
+                                    .border(1.dp, Color(0x16FFFFFF), RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    badgeMark,
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    maxLines = 1,
+                                )
+                            }
+                            Column(verticalArrangement = Arrangement.Center) {
+                                Text(row.channel.guideNumber, color = TivoAccent, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text(row.channel.guideName, color = TivoMuted, fontSize = 11.sp, maxLines = 1)
+                            }
                         }
                     }
 
