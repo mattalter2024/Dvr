@@ -16,6 +16,7 @@ import { generateSamplePrograms } from '../epg/sampleGuide.js';
 import { DvrScheduler } from '../dvr/scheduler.js';
 import { DvrRecorder } from '../dvr/recorder.js';
 import { CommercialSkipService } from '../dvr/commercialSkip.js';
+import { DvrCleanupService } from '../dvr/cleanupService.js';
 
 describe('XMLTV EPG Parser', () => {
   it('parses XMLTV timestamps with timezone offsets into ISO UTC', () => {
@@ -153,6 +154,77 @@ describe('Whole-House Tuner Pool & DVR Scheduler', () => {
     const allRecs = db.listRecordings();
     assert.equal(allRecs.length, 2);
     assert.ok(allRecs.some((r) => r.status === 'conflict'));
+
+    db.close();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('cleans up expired and watched recordings while protecting locked and Keep Forever items', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'airvault-cleanup-'));
+    const db = new DvrDatabase(path.join(tmpDir, 'test.sqlite'));
+    await db.init();
+    db.updateSettings({ defaultRetentionDays: 30, deleteWatchedAfterDays: 7, maxStorageGb: 0 });
+
+    const nowMs = Date.now();
+    const daysAgo = (d: number) => new Date(nowMs - d * 24 * 3600 * 1000).toISOString();
+
+    const makeRec = (
+      id: string,
+      opts: { ageDays: number; keepDays: number; keepProtected?: boolean; watched?: boolean },
+    ) => ({
+      id,
+      programId: null,
+      seriesPassId: null,
+      channelId: 'ch-1',
+      channelNumber: '2.1',
+      channelName: 'WCBS-HD',
+      title: `Show ${id}`,
+      subtitle: null,
+      description: null,
+      episodeNum: null,
+      category: 'Drama',
+      scheduledStart: daysAgo(opts.ageDays),
+      scheduledEnd: daysAgo(opts.ageDays),
+      actualStart: daysAgo(opts.ageDays),
+      actualEnd: daysAgo(opts.ageDays),
+      paddingStartMin: 0,
+      paddingEndMin: 0,
+      status: 'completed' as const,
+      errorMessage: null,
+      filePath: null,
+      fileSizeBytes: 500_000_000,
+      durationSec: 1800,
+      thumbnailPath: null,
+      commercialScanStatus: 'completed' as const,
+      commercialCount: 2,
+      watchedPositionSec: opts.watched ? 1800 : 0,
+      watched: Boolean(opts.watched),
+      keepDays: opts.keepDays,
+      keepProtected: Boolean(opts.keepProtected),
+      createdAt: daysAgo(opts.ageDays),
+    });
+
+    // 1. Expired (40 days old, keep 30d) -> MUST delete
+    db.insertRecording(makeRec('expired', { ageDays: 40, keepDays: 30 }));
+    // 2. Watched 10 days ago (deleteWatchedAfterDays = 7) -> MUST delete
+    db.insertRecording(makeRec('watched-old', { ageDays: 10, keepDays: 30, watched: true }));
+    // 3. Locked / Protected (45 days old, keep 14d, keepProtected = true) -> MUST KEEP
+    db.insertRecording(makeRec('locked', { ageDays: 45, keepDays: 14, keepProtected: true }));
+    // 4. Keep Forever (90 days old, keepDays = 0, unwatched) -> MUST KEEP
+    db.insertRecording(makeRec('forever', { ageDays: 90, keepDays: 0 }));
+
+    const cleanup = new DvrCleanupService(db);
+    const preview = cleanup.runCleanup(true, nowMs);
+    assert.equal(preview.expiredDeleted, 1);
+    assert.equal(preview.watchedDeleted, 1);
+    assert.equal(db.listRecordings().length, 4); // dryRun does not delete
+
+    const report = cleanup.runCleanup(false, nowMs);
+    assert.equal(report.expiredDeleted, 1);
+    assert.equal(report.watchedDeleted, 1);
+
+    const remainingIds = db.listRecordings().map((r) => r.id).sort();
+    assert.deepEqual(remainingIds, ['forever', 'locked']);
 
     db.close();
     fs.rmSync(tmpDir, { recursive: true, force: true });

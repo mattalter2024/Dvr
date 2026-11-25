@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { AlertTriangle, Plus, Trash2, XCircle } from 'lucide-react';
 import {
   api,
+  formatRetention,
   formatTime,
   getRecordingScreenshotUrl,
   getTitleScreenshotUrl,
+  RETENTION_OPTIONS,
   type Recording,
   type SeriesPass,
 } from '../api/client';
@@ -26,6 +28,7 @@ export function SchedulePage({
   const [newTitle, setNewTitle] = useState('');
   const [newOnly, setNewOnly] = useState(true);
   const [keepLimit, setKeepLimit] = useState(5);
+  const [keepDays, setKeepDays] = useState(30);
 
   const upcoming = recordings
     .filter((r) => r.status === 'scheduled' || r.status === 'conflict' || r.status === 'recording')
@@ -39,6 +42,7 @@ export function SchedulePage({
       title: newTitle.trim(),
       newOnly,
       keepLimit,
+      keepDays,
     });
     setNewTitle('');
     onNotify(`OnePass created for "${res.seriesPass.title}" (${res.scheduledCount} queued)`);
@@ -107,7 +111,8 @@ export function SchedulePage({
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                       Ch {rec.channelNumber} {rec.channelName} ·{' '}
                       {new Date(rec.scheduledStart).toLocaleDateString()} ·{' '}
-                      {formatTime(rec.scheduledStart)} – {formatTime(rec.scheduledEnd)}
+                      {formatTime(rec.scheduledStart)} – {formatTime(rec.scheduledEnd)} ·{' '}
+                      {formatRetention(rec.keepDays, rec.keepProtected)}
                     </div>
                     {rec.errorMessage && (
                       <div style={{ fontSize: 12, color: '#fcd34d', marginTop: 3 }}>
@@ -162,13 +167,23 @@ export function SchedulePage({
               <option value="all">New & Reruns</option>
             </select>
           </div>
-          <div className="field" style={{ width: 140 }}>
+          <div className="field" style={{ width: 135 }}>
             <label>Keep At Most</label>
             <select value={keepLimit} onChange={(e) => setKeepLimit(Number(e.target.value))}>
               <option value={0}>Keep All</option>
               <option value={3}>3 Episodes</option>
               <option value={5}>5 Episodes</option>
               <option value={10}>10 Episodes</option>
+            </select>
+          </div>
+          <div className="field" style={{ width: 135 }}>
+            <label>Save For</label>
+            <select value={keepDays} onChange={(e) => setKeepDays(Number(e.target.value))}>
+              {RETENTION_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
           <button type="submit" className="btn btn-primary" style={{ height: 39 }}>
@@ -206,7 +221,8 @@ export function SchedulePage({
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{pass.title}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                     {pass.newOnly ? 'New only' : 'New & reruns'} ·{' '}
-                    {pass.keepLimit > 0 ? `Keep latest ${pass.keepLimit}` : 'Keep all'}
+                    {pass.keepLimit > 0 ? `Keep latest ${pass.keepLimit}` : 'Keep all'} ·{' '}
+                    {formatRetention(pass.keepDays)}
                   </div>
                 </div>
               </div>

@@ -3,15 +3,21 @@ import {
   Antenna,
   CheckCircle2,
   Download,
+  HardDrive,
   Radio,
   RefreshCw,
   Save,
   Scissors,
+  Sparkles,
   Trash2,
   Tv2,
 } from 'lucide-react';
 import {
   api,
+  formatBytes,
+  RETENTION_OPTIONS,
+  type CleanupReport,
+  type CleanupStatus,
   type DvrSettings,
   type SystemCapabilities,
   type TunerUtilization,
@@ -26,14 +32,17 @@ interface SettingsPageProps {
 export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps) {
   const [settings, setSettings] = useState<DvrSettings | null>(null);
   const [caps, setCaps] = useState<SystemCapabilities | null>(null);
+  const [cleanupStatus, setCleanupStatus] = useState<CleanupStatus | null>(null);
+  const [lastCleanupResult, setLastCleanupResult] = useState<CleanupReport | null>(null);
   const [hdhrHost, setHdhrHost] = useState('');
   const [xmltvInput, setXmltvInput] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
 
   const loadSettings = async () => {
-    const res = await api.getSettings();
+    const [res, cs] = await Promise.all([api.getSettings(), api.getCleanupStatus()]);
     setSettings(res.settings);
     setCaps(res.capabilities);
+    setCleanupStatus(cs);
     setXmltvInput(res.settings.xmltvUrl || '');
   };
 
@@ -46,9 +55,9 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
     try {
       const res = await api.discoverHdhr();
       if (res.discovered.length > 0) {
-        onNotify(`Discovered ${res.discovered.length} HDHomeRun tuner(s) on your home network!`);
+        onNotify(`Discovered ${res.discovered.length} HDHomeRun tuner(s) on your home network`);
       } else {
-        onNotify('No HDHomeRun devices responded to UDP broadcast. You can enter its IP manually.');
+        onNotify('No HDHomeRun devices responded. You can enter its IP manually.');
       }
       onRefresh();
     } catch (err) {
@@ -98,6 +107,8 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
       const res = await api.updateSettings(settings);
       setSettings(res.settings);
       setCaps(res.capabilities);
+      const cs = await api.getCleanupStatus();
+      setCleanupStatus(cs);
       onNotify('DVR settings saved');
       onRefresh();
     } finally {
@@ -105,43 +116,73 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
     }
   };
 
+  const handleCleanup = async (dryRun: boolean) => {
+    setBusy(dryRun ? 'cleanup-preview' : 'cleanup-run');
+    try {
+      const { report, status } = await api.runCleanup(dryRun);
+      setCleanupStatus(status);
+      setLastCleanupResult(report);
+      const removedTotal =
+        report.expiredDeleted +
+        report.watchedDeleted +
+        report.quotaDeleted +
+        report.orphansRemoved;
+      onNotify(
+        dryRun
+          ? `Cleanup preview: ${removedTotal} item(s) eligible (${formatBytes(report.bytesFreed)})`
+          : `Cleanup complete: removed ${removedTotal} item(s), freed ${formatBytes(report.bytesFreed)}`,
+      );
+      if (!dryRun) onRefresh();
+    } finally {
+      setBusy(null);
+    }
+  };
+
   if (!settings || !caps) {
-    return <div className="card">Loading DVR configuration...</div>;
+    return <div className="card">Loading DVR settings...</div>;
   }
+
+  const usedGb = cleanupStatus ? cleanupStatus.totalRecordingsBytes / 1_073_741_824 : 0;
+  const quotaPct =
+    settings.maxStorageGb > 0 ? Math.min(100, (usedGb / settings.maxStorageGb) * 100) : 0;
+  const eligibleCount = cleanupStatus
+    ? cleanupStatus.preview.expiredDeleted +
+      cleanupStatus.preview.watchedDeleted +
+      cleanupStatus.preview.quotaDeleted +
+      cleanupStatus.preview.orphansRemoved
+    : 0;
 
   return (
     <>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Tuners, EPG & Commercial Skip Settings</h1>
+          <h1 className="page-title">Settings</h1>
           <p className="page-subtitle">
-            Connect HDHomeRun OTA tuners, configure XMLTV guide feeds, and pair Android TV / Fire TV clients
+            Tuners, EPG guide feeds, recording retention, cleanup, and commercial skipping
           </p>
         </div>
       </div>
 
       {/* Whole-House Smart TV Connection Card */}
-      <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Tv2 size={18} color="var(--accent)" /> Connect Android TV, Google TV & Fire TV Apps
+      <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <h2 className="section-heading" style={{ marginBottom: 0 }}>
+          <Tv2 size={15} color="var(--accent)" /> Whole-House TV Access
         </h2>
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-          The native Android TV / Fire TV app automatically discovers this server on your home Wi-Fi
-          via UDP port <code>{caps.discoveryUdpPort}</code>. You can also connect manually using any
-          LAN address below:
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          Android TV, Google TV & Fire TV apps auto-discover this server on UDP port{' '}
+          <code>{caps.discoveryUdpPort}</code>, or connect directly via:
         </p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {caps.lanAddresses.map((ip) => (
             <div
               key={ip}
               style={{
-                padding: '10px 16px',
-                borderRadius: 10,
+                padding: '7px 12px',
+                borderRadius: 8,
                 background: 'var(--bg-elevated)',
-                border: '1px solid rgba(56, 189, 248, 0.35)',
+                border: '1px solid var(--border-subtle)',
                 fontFamily: 'monospace',
-                fontSize: 15,
-                fontWeight: 700,
+                fontSize: 13,
                 color: 'var(--accent)',
               }}
             >
@@ -151,11 +192,165 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
         </div>
       </section>
 
+      {/* Storage Retention & Automated Cleanup Section */}
+      <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 10,
+          }}
+        >
+          <h2 className="section-heading" style={{ marginBottom: 0 }}>
+            <HardDrive size={15} color="var(--accent)" /> Storage Retention & Cleanup
+          </h2>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-secondary"
+              disabled={busy === 'cleanup-preview'}
+              onClick={() => void handleCleanup(true)}
+            >
+              Preview Cleanup
+            </button>
+            <button
+              className="btn btn-primary"
+              disabled={busy === 'cleanup-run'}
+              onClick={() => void handleCleanup(false)}
+            >
+              <Sparkles size={14} /> {busy === 'cleanup-run' ? 'Cleaning...' : 'Run Cleanup Now'}
+            </button>
+          </div>
+        </div>
+
+        {cleanupStatus && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              padding: '12px 14px',
+              borderRadius: 10,
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <span>
+                <strong>{formatBytes(cleanupStatus.totalRecordingsBytes)}</strong> used across{' '}
+                <strong>{cleanupStatus.totalRecordingsCount}</strong> recording(s)
+                {settings.maxStorageGb > 0 ? ` / ${settings.maxStorageGb} GB quota` : ' (Unlimited)'}
+              </span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                {cleanupStatus.protectedCount} locked / keep forever · {eligibleCount} eligible for
+                cleanup ({formatBytes(cleanupStatus.preview.bytesFreed)})
+              </span>
+            </div>
+
+            {settings.maxStorageGb > 0 && (
+              <div className="progress-bar-bg">
+                <div className="progress-bar-fill" style={{ width: `${quotaPct}%` }} />
+              </div>
+            )}
+
+            {(lastCleanupResult ?? cleanupStatus.lastReport) && (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {(() => {
+                  const r = lastCleanupResult ?? cleanupStatus.lastReport!;
+                  return `${r.dryRun ? 'Preview' : 'Last cleanup'} (${new Date(r.ranAt).toLocaleTimeString()}): ${r.expiredDeleted} expired, ${r.watchedDeleted} watched, ${r.quotaDeleted} over-quota, ${r.orphansRemoved} temp/orphan files · ${formatBytes(r.bytesFreed)}`;
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="form-grid">
+          <div className="field">
+            <label>Default How Long to Save Recordings</label>
+            <select
+              value={settings.defaultRetentionDays}
+              onChange={(e) =>
+                setSettings({ ...settings, defaultRetentionDays: Number(e.target.value) })
+              }
+            >
+              {RETENTION_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="field">
+            <label>Auto-Delete Watched Shows After</label>
+            <select
+              value={settings.deleteWatchedAfterDays}
+              onChange={(e) =>
+                setSettings({ ...settings, deleteWatchedAfterDays: Number(e.target.value) })
+              }
+            >
+              <option value={0}>Never (follow normal keep days)</option>
+              <option value={1}>1 Day</option>
+              <option value={3}>3 Days</option>
+              <option value={7}>7 Days</option>
+              <option value={14}>14 Days</option>
+              <option value={30}>30 Days</option>
+            </select>
+          </div>
+
+          <div className="field">
+            <label>Max DVR Storage Quota (GB, 0 = Unlimited)</label>
+            <input
+              type="number"
+              min={0}
+              max={50000}
+              value={settings.maxStorageGb}
+              onChange={(e) =>
+                setSettings({ ...settings, maxStorageGb: Math.max(0, Number(e.target.value)) })
+              }
+            />
+          </div>
+
+          <div className="field">
+            <label>Automatic Cleanup Schedule</label>
+            <select
+              value={settings.cleanupIntervalHours}
+              onChange={(e) =>
+                setSettings({ ...settings, cleanupIntervalHours: Number(e.target.value) })
+              }
+            >
+              <option value={1}>Every Hour</option>
+              <option value={6}>Every 6 Hours</option>
+              <option value={12}>Every 12 Hours</option>
+              <option value={24}>Daily (Every 24 Hours)</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
       {/* OTA Tuners Section */}
-      <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Antenna size={18} color="var(--accent)" /> OTA Tuners (HDHomeRun + Simulator)
+      <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 10,
+          }}
+        >
+          <h2 className="section-heading" style={{ marginBottom: 0 }}>
+            <Antenna size={15} color="var(--accent)" /> OTA Tuners
           </h2>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
@@ -163,7 +358,7 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
               disabled={busy === 'discover'}
               onClick={() => void handleDiscoverHdhr()}
             >
-              <Radio size={15} /> {busy === 'discover' ? 'Scanning LAN...' : 'Auto-Discover HDHomeRun'}
+              <Radio size={14} /> {busy === 'discover' ? 'Scanning...' : 'Auto-Discover HDHomeRun'}
             </button>
             <button
               className="btn btn-secondary"
@@ -178,20 +373,23 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
           </div>
         </div>
 
-        <form onSubmit={(e) => void handleAddHdhr(e)} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <form
+          onSubmit={(e) => void handleAddHdhr(e)}
+          style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
+        >
           <input
             type="text"
             placeholder="Manual HDHomeRun IP (e.g. 192.168.1.50)"
             value={hdhrHost}
             onChange={(e) => setHdhrHost(e.target.value)}
-            style={{ flex: 1, minWidth: 240 }}
+            style={{ flex: 1, minWidth: 230 }}
           />
           <button type="submit" className="btn btn-secondary" disabled={busy === 'add-hdhr'}>
-            Add HDHomeRun by IP
+            Add by IP
           </button>
         </form>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {tuners.map(({ tuner, activeLeases, freeSlots }) => (
             <div
               key={tuner.id}
@@ -200,8 +398,8 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 gap: 12,
-                padding: '12px 16px',
-                borderRadius: 12,
+                padding: '11px 14px',
+                borderRadius: 10,
                 background: 'var(--bg-elevated)',
                 border: '1px solid var(--border-subtle)',
                 flexWrap: 'wrap',
@@ -209,14 +407,14 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
             >
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <strong>{tuner.name}</strong>
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>{tuner.name}</span>
                   <span className="pill pill-hd">{tuner.type.toUpperCase()}</span>
                   <span className="pill pill-ok">
-                    {freeSlots}/{tuner.tunerCount} tuners free
+                    {freeSlots}/{tuner.tunerCount} free
                   </span>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-                  Model: {tuner.modelNumber} · Host: {tuner.host} · Active streams: {activeLeases.length}
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>
+                  {tuner.modelNumber} · {tuner.host} · {activeLeases.length} active
                 </div>
               </div>
               <button
@@ -227,7 +425,7 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
                   onRefresh();
                 }}
               >
-                <Trash2 size={14} /> Remove
+                <Trash2 size={13} /> Remove
               </button>
             </div>
           ))}
@@ -235,34 +433,34 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
       </section>
 
       {/* XMLTV EPG Section */}
-      <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Download size={18} color="var(--accent)" /> TV Guide Data (XMLTV / Sample Generator)
+      <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <h2 className="section-heading" style={{ marginBottom: 0 }}>
+          <Download size={15} color="var(--accent)" /> TV Guide Data (XMLTV)
         </h2>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input
             type="text"
             placeholder="https://example.com/guide.xml.gz or local /path/to/xmltv.xml"
             value={xmltvInput}
             onChange={(e) => setXmltvInput(e.target.value)}
-            style={{ flex: 1, minWidth: 280 }}
+            style={{ flex: 1, minWidth: 260 }}
           />
           <button
             className="btn btn-primary"
             disabled={busy === 'xmltv'}
             onClick={() => void handleImportXmltv()}
           >
-            <RefreshCw size={15} /> {busy === 'xmltv' ? 'Importing...' : 'Import XMLTV'}
+            <RefreshCw size={14} /> {busy === 'xmltv' ? 'Importing...' : 'Import XMLTV'}
           </button>
           <button
             className="btn btn-secondary"
             onClick={async () => {
               const res = await api.generateSampleGuide(48);
-              onNotify(`Generated ${res.programCount} sample guide programs across ${res.channelCount} channels`);
+              onNotify(`Generated ${res.programCount} guide entries across ${res.channelCount} channels`);
               onRefresh();
             }}
           >
-            Generate 48h Sample Guide
+            Generate 48h Sample
           </button>
         </div>
       </section>
@@ -271,32 +469,32 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
       <form
         className="card"
         onSubmit={(e) => void handleSaveSettings(e)}
-        style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
       >
-        <h2 style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Scissors size={18} color="#f59e0b" /> Commercial Skipping & DVR Preferences
+        <h2 className="section-heading" style={{ marginBottom: 0 }}>
+          <Scissors size={15} color="var(--accent)" /> Recording & Commercial Skip Preferences
         </h2>
 
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <span className={`pill ${caps.ffmpegAvailable ? 'pill-ok' : 'pill-ad'}`}>
-            <CheckCircle2 size={12} /> FFmpeg: {caps.ffmpegAvailable ? 'Detected' : 'Not installed'}
+            <CheckCircle2 size={11} /> FFmpeg: {caps.ffmpegAvailable ? 'Ready' : 'Not installed'}
           </span>
           <span className={`pill ${caps.comskipAvailable ? 'pill-ok' : 'pill-ad'}`}>
-            <Scissors size={12} /> Comskip:{' '}
-            {caps.comskipAvailable ? 'Detected' : 'Fallback to FFmpeg black/silence analyzer'}
+            <Scissors size={11} /> Comskip:{' '}
+            {caps.comskipAvailable ? 'Ready' : 'FFmpeg fallback analyzer'}
           </span>
         </div>
 
         <div className="form-grid">
           <div className="field">
-            <label>Server Display Name</label>
+            <label>Server Name</label>
             <input
               value={settings.serverName}
               onChange={(e) => setSettings({ ...settings, serverName: e.target.value })}
             />
           </div>
           <div className="field">
-            <label>Default Start Padding (minutes)</label>
+            <label>Start Padding (minutes)</label>
             <input
               type="number"
               min={0}
@@ -308,7 +506,7 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
             />
           </div>
           <div className="field">
-            <label>Default End Padding (minutes)</label>
+            <label>End Padding (minutes)</label>
             <input
               type="number"
               min={0}
@@ -320,33 +518,33 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
             />
           </div>
           <div className="field">
-            <label>Comskip Binary Path</label>
+            <label>Comskip Path</label>
             <input
               value={settings.comskipPath}
               onChange={(e) => setSettings({ ...settings, comskipPath: e.target.value })}
             />
           </div>
           <div className="field">
-            <label>FFmpeg Binary Path</label>
+            <label>FFmpeg Path</label>
             <input
               value={settings.ffmpegPath}
               onChange={(e) => setSettings({ ...settings, ffmpegPath: e.target.value })}
             />
           </div>
           <div className="field">
-            <label>Auto-Scan Commercials After Recording</label>
+            <label>Auto-Scan Commercials</label>
             <select
               value={settings.autoCommercialScan ? 'yes' : 'no'}
               onChange={(e) =>
                 setSettings({ ...settings, autoCommercialScan: e.target.value === 'yes' })
               }
             >
-              <option value="yes">Enabled (Recommended)</option>
+              <option value="yes">Enabled</option>
               <option value="no">Manual Only</option>
             </select>
           </div>
           <div className="field">
-            <label>Auto-Skip Commercials During Playback</label>
+            <label>Auto-Skip During Playback</label>
             <select
               value={settings.autoSkipCommercialsDefault ? 'yes' : 'no'}
               onChange={(e) =>
@@ -357,14 +555,14 @@ export function SettingsPage({ tuners, onRefresh, onNotify }: SettingsPageProps)
               }
             >
               <option value="yes">Auto-Skip Enabled</option>
-              <option value="no">Show Skip Button Only</option>
+              <option value="no">Manual Skip Button</option>
             </select>
           </div>
         </div>
 
         <div>
           <button type="submit" className="btn btn-primary" disabled={busy === 'save'}>
-            <Save size={16} /> Save Settings
+            <Save size={14} /> Save All DVR Settings
           </button>
         </div>
       </form>

@@ -15,6 +15,7 @@ import type { EpgService } from '../epg/epgService.js';
 import type { DvrScheduler } from '../dvr/scheduler.js';
 import type { DvrRecorder } from '../dvr/recorder.js';
 import { CommercialSkipService, serializeEdl } from '../dvr/commercialSkip.js';
+import type { DvrCleanupService } from '../dvr/cleanupService.js';
 import type { HlsLiveManager } from '../streaming/hlsManager.js';
 import { renderShowScreenshotSvg } from '../media/showArtwork.js';
 import type { CommercialSegment, DvrSettings } from '../types/index.js';
@@ -26,13 +27,14 @@ export interface ApiDeps {
   scheduler: DvrScheduler;
   recorder: DvrRecorder;
   commercialSkip: CommercialSkipService;
+  cleanup: DvrCleanupService;
   hls: HlsLiveManager;
   broadcast: (type: string, payload: unknown) => void;
 }
 
 export function createApiRouter(deps: ApiDeps): Router {
   const router = Router();
-  const { db, tunerPool, epg, scheduler, recorder, commercialSkip, hls, broadcast } = deps;
+  const { db, tunerPool, epg, scheduler, recorder, commercialSkip, cleanup, hls, broadcast } = deps;
 
   // ==================== HEALTH & SYSTEM ====================
 
@@ -84,10 +86,25 @@ export function createApiRouter(deps: ApiDeps): Router {
     }
 
     epg.startAutoRefresh();
+    if (patch.cleanupIntervalHours !== undefined) {
+      cleanup.start();
+    }
     res.json({
       settings: updated,
       capabilities: detectCapabilities(updated),
     });
+  });
+
+  // ==================== STORAGE RETENTION & CLEANUP ====================
+
+  router.get('/cleanup/status', (_req, res) => {
+    res.json(cleanup.getStatus());
+  });
+
+  router.post('/cleanup/run', (req, res) => {
+    const dryRun = Boolean(req.body?.dryRun);
+    const report = cleanup.runCleanup(dryRun);
+    res.json({ report, status: cleanup.getStatus() });
   });
 
   // ==================== TUNERS & HDHOMERUN ====================
@@ -339,17 +356,24 @@ export function createApiRouter(deps: ApiDeps): Router {
   });
 
   router.post('/recordings/schedule', (req, res) => {
-    const { programId, paddingStartMin, paddingEndMin } = req.body as {
+    const { programId, paddingStartMin, paddingEndMin, keepDays, keepProtected } = req.body as {
       programId?: string;
       paddingStartMin?: number;
       paddingEndMin?: number;
+      keepDays?: number;
+      keepProtected?: boolean;
     };
     if (!programId) {
       res.status(400).json({ error: 'programId is required' });
       return;
     }
     try {
-      const recording = scheduler.scheduleProgram(programId, { paddingStartMin, paddingEndMin });
+      const recording = scheduler.scheduleProgram(programId, {
+        paddingStartMin,
+        paddingEndMin,
+        keepDays,
+        keepProtected,
+      });
       res.status(201).json({ recording });
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : 'Schedule failed' });
@@ -357,21 +381,39 @@ export function createApiRouter(deps: ApiDeps): Router {
   });
 
   router.post('/recordings/now', async (req, res) => {
-    const { channelId, durationMinutes, title } = req.body as {
+    const { channelId, durationMinutes, title, keepDays } = req.body as {
       channelId?: string;
       durationMinutes?: number;
       title?: string;
+      keepDays?: number;
     };
     if (!channelId) {
       res.status(400).json({ error: 'channelId is required' });
       return;
     }
     try {
-      const recording = await scheduler.recordNow(channelId, durationMinutes ?? 30, title);
+      const recording = await scheduler.recordNow(channelId, durationMinutes ?? 30, title, keepDays);
       res.status(201).json({ recording });
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : 'Record now failed' });
     }
+  });
+
+  router.patch('/recordings/:id/retention', (req, res) => {
+    const rec = db.getRecording(req.params.id);
+    if (!rec) {
+      res.status(404).json({ error: 'Recording not found' });
+      return;
+    }
+    const patch: Partial<Pick<typeof rec, 'keepDays' | 'keepProtected'>> = {};
+    if (req.body?.keepDays !== undefined) {
+      patch.keepDays = Math.max(0, Number(req.body.keepDays));
+    }
+    if (req.body?.keepProtected !== undefined) {
+      patch.keepProtected = Boolean(req.body.keepProtected);
+    }
+    const updated = db.updateRecording(rec.id, patch);
+    res.json({ recording: updated });
   });
 
   router.post('/recordings/:id/stop', (req, res) => {
@@ -615,6 +657,7 @@ export function createApiRouter(deps: ApiDeps): Router {
       paddingStartMin: req.body?.paddingStartMin,
       paddingEndMin: req.body?.paddingEndMin,
       keepLimit: Number(req.body?.keepLimit ?? 0),
+      keepDays: req.body?.keepDays !== undefined ? Number(req.body.keepDays) : undefined,
       priority: Number(req.body?.priority ?? 50),
     });
     res.status(201).json(result);
@@ -639,6 +682,8 @@ export function createApiRouter(deps: ApiDeps): Router {
           : existing.paddingEndMin,
       keepLimit:
         req.body?.keepLimit !== undefined ? Number(req.body.keepLimit) : existing.keepLimit,
+      keepDays:
+        req.body?.keepDays !== undefined ? Number(req.body.keepDays) : existing.keepDays,
       priority: req.body?.priority !== undefined ? Number(req.body.priority) : existing.priority,
       enabled: req.body?.enabled !== undefined ? Boolean(req.body.enabled) : existing.enabled,
     };

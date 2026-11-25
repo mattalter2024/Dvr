@@ -99,6 +99,8 @@ export interface Recording {
   commercialCount: number;
   watchedPositionSec: number;
   watched: boolean;
+  keepDays: number;
+  keepProtected: boolean;
   createdAt: string;
 }
 
@@ -110,6 +112,7 @@ export interface SeriesPass {
   paddingStartMin: number;
   paddingEndMin: number;
   keepLimit: number;
+  keepDays: number;
   priority: number;
   enabled: boolean;
   createdAt: string;
@@ -150,6 +153,10 @@ export interface DvrSettings {
   xmltvRefreshHours: number;
   defaultPaddingStartMin: number;
   defaultPaddingEndMin: number;
+  defaultRetentionDays: number;
+  deleteWatchedAfterDays: number;
+  maxStorageGb: number;
+  cleanupIntervalHours: number;
   autoCommercialScan: boolean;
   autoSkipCommercialsDefault: boolean;
   comskipPath: string;
@@ -159,6 +166,29 @@ export interface DvrSettings {
   transcodeLiveTv: boolean;
   enableVirtualTuner: boolean;
   virtualTunerCount: number;
+}
+
+export interface CleanupReport {
+  ranAt: string;
+  dryRun: boolean;
+  expiredDeleted: number;
+  watchedDeleted: number;
+  quotaDeleted: number;
+  orphansRemoved: number;
+  bytesFreed: number;
+  totalRecordingsBytes: number;
+  totalRecordingsCount: number;
+  protectedCount: number;
+}
+
+export interface CleanupStatus {
+  totalRecordingsBytes: number;
+  totalRecordingsCount: number;
+  protectedCount: number;
+  maxStorageGb: number;
+  cleanupIntervalHours: number;
+  lastReport: CleanupReport | null;
+  preview: CleanupReport;
 }
 
 export interface SystemCapabilities {
@@ -276,15 +306,23 @@ export const api = {
     req<{ recording: Recording; commercials: CommercialSegment[] }>(
       `/api/recordings/${encodeURIComponent(id)}`,
     ),
-  scheduleProgram: (programId: string) =>
+  scheduleProgram: (programId: string, opts?: { keepDays?: number; keepProtected?: boolean }) =>
     req<{ recording: Recording }>('/api/recordings/schedule', {
       method: 'POST',
-      body: JSON.stringify({ programId }),
+      body: JSON.stringify({ programId, ...opts }),
     }),
-  recordNow: (channelId: string, durationMinutes = 1, title?: string) =>
+  recordNow: (channelId: string, durationMinutes = 1, title?: string, keepDays?: number) =>
     req<{ recording: Recording }>('/api/recordings/now', {
       method: 'POST',
-      body: JSON.stringify({ channelId, durationMinutes, title }),
+      body: JSON.stringify({ channelId, durationMinutes, title, keepDays }),
+    }),
+  updateRecordingRetention: (
+    id: string,
+    patch: { keepDays?: number; keepProtected?: boolean },
+  ) =>
+    req<{ recording: Recording }>(`/api/recordings/${encodeURIComponent(id)}/retention`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
     }),
   stopRecording: (id: string) =>
     req<{ stopped: boolean }>(`/api/recordings/${encodeURIComponent(id)}/stop`, { method: 'POST' }),
@@ -307,6 +345,7 @@ export const api = {
     channelId?: string | null;
     newOnly?: boolean;
     keepLimit?: number;
+    keepDays?: number;
   }) =>
     req<{ seriesPass: SeriesPass; scheduledCount: number }>('/api/series-passes', {
       method: 'POST',
@@ -326,6 +365,13 @@ export const api = {
     req<{ settings: DvrSettings; capabilities: SystemCapabilities }>('/api/settings', {
       method: 'PUT',
       body: JSON.stringify(patch),
+    }),
+
+  getCleanupStatus: () => req<CleanupStatus>('/api/cleanup/status'),
+  runCleanup: (dryRun = false) =>
+    req<{ report: CleanupReport; status: CleanupStatus }>('/api/cleanup/run', {
+      method: 'POST',
+      body: JSON.stringify({ dryRun }),
     }),
 
   getApps: () => req<{ apps: StreamingApp[] }>('/api/apps'),
@@ -389,4 +435,27 @@ export function getProgramScreenshotUrl(program: Program | null, channel: Channe
 
 export function getRecordingScreenshotUrl(recording: Recording): string {
   return `/api/recordings/${encodeURIComponent(recording.id)}/thumbnail`;
+}
+
+export const RETENTION_OPTIONS = [
+  { value: 7, label: '7 Days' },
+  { value: 14, label: '14 Days' },
+  { value: 30, label: '30 Days' },
+  { value: 60, label: '60 Days' },
+  { value: 90, label: '90 Days' },
+  { value: 365, label: '1 Year' },
+  { value: 0, label: 'Keep Forever' },
+];
+
+export function formatRetention(keepDays: number, keepProtected?: boolean): string {
+  if (keepProtected) return 'Locked';
+  if (keepDays <= 0) return 'Keep Forever';
+  if (keepDays === 365) return 'Save 1y';
+  return `Save ${keepDays}d`;
+}
+
+export function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 MB';
+  if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(2)} GB`;
+  return `${(bytes / 1_048_576).toFixed(1)} MB`;
 }

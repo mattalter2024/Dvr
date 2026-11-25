@@ -4,6 +4,8 @@ import {
   Check,
   Download,
   Folder,
+  Lock,
+  LockOpen,
   Play,
   Scissors,
   Square,
@@ -12,7 +14,9 @@ import {
 import {
   api,
   formatDuration,
+  formatRetention,
   getRecordingScreenshotUrl,
+  RETENTION_OPTIONS,
   type Recording,
 } from '../api/client';
 import { playTivoBackBoop, playTivoNavBloop, playTivoSelectChime } from '../utils/tivoSounds';
@@ -165,6 +169,10 @@ export function RecordingsPage({
               {rec.commercialCount > 0 && (
                 <span className="pill pill-skip">Skip ({rec.commercialCount})</span>
               )}
+              <span className="pill pill-hd">
+                {rec.keepProtected && <Lock size={10} />}
+                {formatRetention(rec.keepDays, rec.keepProtected)}
+              </span>
               {rec.status === 'recording' && <span className="pill pill-live">Recording</span>}
               {rec.watched && <Check size={14} color="var(--skip-green)" />}
             </div>
@@ -178,7 +186,7 @@ export function RecordingsPage({
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           {(rec.status === 'completed' || rec.status === 'recording') && (
             <button
               className="btn btn-primary"
@@ -190,6 +198,43 @@ export function RecordingsPage({
               <Play size={14} /> {rec.watchedPositionSec > 5 ? 'Resume' : 'Watch'}
             </button>
           )}
+          <select
+            aria-label="How long to save recording"
+            value={rec.keepDays}
+            onChange={async (e) => {
+              const keepDays = Number(e.target.value);
+              await api.updateRecordingRetention(rec.id, { keepDays });
+              onNotify(
+                keepDays === 0
+                  ? `"${rec.title}" set to Keep Forever`
+                  : `"${rec.title}" will be saved for ${keepDays} days`,
+              );
+              onRefresh();
+            }}
+            style={{ padding: '6px 8px', fontSize: 12 }}
+          >
+            {RETENTION_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <button
+            className={`btn ${rec.keepProtected ? 'btn-amber' : 'btn-secondary'}`}
+            onClick={async () => {
+              const next = !rec.keepProtected;
+              await api.updateRecordingRetention(rec.id, { keepProtected: next });
+              onNotify(
+                next
+                  ? `Locked "${rec.title}" (Keep Until I Delete)`
+                  : `Unlocked "${rec.title}" for automatic cleanup`,
+              );
+              onRefresh();
+            }}
+            title={rec.keepProtected ? 'Protected from cleanup (click to unlock)' : 'Protect from automatic cleanup'}
+          >
+            {rec.keepProtected ? <Lock size={13} /> : <LockOpen size={13} />}
+          </button>
           {rec.status === 'recording' ? (
             <button
               className="btn btn-danger"

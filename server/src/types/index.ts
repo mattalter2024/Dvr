@@ -110,6 +110,8 @@ export interface Recording {
   commercialCount: number;
   watchedPositionSec: number;
   watched: boolean;
+  keepDays: number; // 0 = keep forever
+  keepProtected: boolean; // true = "Keep Until I Delete" lock
   createdAt: string;
 }
 
@@ -121,6 +123,7 @@ export interface SeriesPass {
   paddingStartMin: number;
   paddingEndMin: number;
   keepLimit: number; // 0 = keep all
+  keepDays: number; // 0 = keep forever
   priority: number;
   enabled: boolean;
   createdAt: string;
@@ -132,6 +135,10 @@ export interface DvrSettings {
   xmltvRefreshHours: number;
   defaultPaddingStartMin: number;
   defaultPaddingEndMin: number;
+  defaultRetentionDays: number; // 0 = keep forever
+  deleteWatchedAfterDays: number; // 0 = never auto-delete watched early
+  maxStorageGb: number; // 0 = unlimited
+  cleanupIntervalHours: number;
   autoCommercialScan: boolean;
   autoSkipCommercialsDefault: boolean;
   comskipPath: string;
@@ -141,6 +148,19 @@ export interface DvrSettings {
   transcodeLiveTv: boolean;
   enableVirtualTuner: boolean;
   virtualTunerCount: number;
+}
+
+export interface CleanupReport {
+  ranAt: string;
+  dryRun: boolean;
+  expiredDeleted: number;
+  watchedDeleted: number;
+  quotaDeleted: number;
+  orphansRemoved: number;
+  bytesFreed: number;
+  totalRecordingsBytes: number;
+  totalRecordingsCount: number;
+  protectedCount: number;
 }
 
 export interface LiveSession {

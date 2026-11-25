@@ -44,6 +44,7 @@ export function App() {
   const [seriesPasses, setSeriesPasses] = useState<SeriesPass[]>([]);
   const [apps, setApps] = useState<StreamingApp[]>([]);
   const [autoSkipDefault, setAutoSkipDefault] = useState(true);
+  const [defaultRetentionDays, setDefaultRetentionDays] = useState(30);
   const [playerTarget, setPlayerTarget] = useState<PlayerTarget | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [refreshSignal, setRefreshSignal] = useState(0);
@@ -76,6 +77,7 @@ export function App() {
       setRecordings(rec.recordings);
       setSeriesPasses(sp.seriesPasses);
       setAutoSkipDefault(st.settings.autoSkipCommercialsDefault);
+      setDefaultRetentionDays(st.settings.defaultRetentionDays ?? 30);
       setApps(appRes.apps);
       setRefreshSignal((s) => s + 1);
     } catch (err) {
@@ -182,9 +184,9 @@ export function App() {
     };
   }, [refreshAll]);
 
-  const handleRecordEpisode = async (program: Program) => {
+  const handleRecordEpisode = async (program: Program, keepDays?: number) => {
     try {
-      await api.scheduleProgram(program.id);
+      await api.scheduleProgram(program.id, keepDays !== undefined ? { keepDays } : undefined);
       notify(`Scheduled recording: "${program.title}"`);
       const rec = await api.getRecordings();
       setRecordings(rec.recordings);
@@ -194,12 +196,13 @@ export function App() {
     }
   };
 
-  const handleCreateSeriesPass = async (program: Program, newOnly: boolean) => {
+  const handleCreateSeriesPass = async (program: Program, newOnly: boolean, keepDays?: number) => {
     try {
       const res = await api.createSeriesPass({
         title: program.title,
         channelId: program.channelId,
         newOnly,
+        keepDays,
       });
       notify(`OnePass saved for "${program.title}" (${res.scheduledCount} episodes scheduled)`);
       const [rec, sp] = await Promise.all([api.getRecordings(), api.getSeriesPasses()]);
@@ -258,6 +261,7 @@ export function App() {
 
         {activeTab === 'guide' && (
           <GuidePage
+            defaultRetentionDays={defaultRetentionDays}
             onWatchLive={(channel) => setPlayerTarget({ kind: 'live', channel })}
             onRecordEpisode={handleRecordEpisode}
             onCreateSeriesPass={handleCreateSeriesPass}

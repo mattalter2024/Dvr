@@ -99,6 +99,7 @@ export class DvrDatabase {
         padding_start_min INTEGER NOT NULL DEFAULT 1,
         padding_end_min INTEGER NOT NULL DEFAULT 2,
         keep_limit INTEGER NOT NULL DEFAULT 0,
+        keep_days INTEGER NOT NULL DEFAULT 30,
         priority INTEGER NOT NULL DEFAULT 50,
         enabled INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL
@@ -132,6 +133,8 @@ export class DvrDatabase {
         commercial_count INTEGER NOT NULL DEFAULT 0,
         watched_position_sec REAL NOT NULL DEFAULT 0,
         watched INTEGER NOT NULL DEFAULT 0,
+        keep_days INTEGER NOT NULL DEFAULT 30,
+        keep_protected INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_recordings_status ON recordings(status, scheduled_start);
@@ -169,13 +172,26 @@ export class DvrDatabase {
       );
     `);
 
-    // Safe migrations for existing databases created prior to watch frequency tracking
+    // Safe migrations for existing databases
     const chCols = this.all<{ name: string }>('PRAGMA table_info(channels)').map((c) => c.name);
     if (!chCols.includes('watch_count')) {
       this.db.run('ALTER TABLE channels ADD COLUMN watch_count INTEGER NOT NULL DEFAULT 0');
     }
     if (!chCols.includes('last_watched_at')) {
       this.db.run('ALTER TABLE channels ADD COLUMN last_watched_at TEXT');
+    }
+
+    const recCols = this.all<{ name: string }>('PRAGMA table_info(recordings)').map((c) => c.name);
+    if (!recCols.includes('keep_days')) {
+      this.db.run('ALTER TABLE recordings ADD COLUMN keep_days INTEGER NOT NULL DEFAULT 30');
+    }
+    if (!recCols.includes('keep_protected')) {
+      this.db.run('ALTER TABLE recordings ADD COLUMN keep_protected INTEGER NOT NULL DEFAULT 0');
+    }
+
+    const spCols = this.all<{ name: string }>('PRAGMA table_info(series_passes)').map((c) => c.name);
+    if (!spCols.includes('keep_days')) {
+      this.db.run('ALTER TABLE series_passes ADD COLUMN keep_days INTEGER NOT NULL DEFAULT 30');
     }
   }
 
@@ -526,6 +542,7 @@ export class DvrDatabase {
       paddingStartMin: Number(r.padding_start_min),
       paddingEndMin: Number(r.padding_end_min),
       keepLimit: Number(r.keep_limit),
+      keepDays: Number(r.keep_days ?? 30),
       priority: Number(r.priority),
       enabled: Number(r.enabled) === 1,
       createdAt: String(r.created_at),
@@ -534,8 +551,8 @@ export class DvrDatabase {
 
   upsertSeriesPass(pass: SeriesPass): void {
     this.run(
-      `INSERT INTO series_passes (id, title, channel_id, new_only, padding_start_min, padding_end_min, keep_limit, priority, enabled, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO series_passes (id, title, channel_id, new_only, padding_start_min, padding_end_min, keep_limit, keep_days, priority, enabled, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          title = excluded.title,
          channel_id = excluded.channel_id,
@@ -543,6 +560,7 @@ export class DvrDatabase {
          padding_start_min = excluded.padding_start_min,
          padding_end_min = excluded.padding_end_min,
          keep_limit = excluded.keep_limit,
+         keep_days = excluded.keep_days,
          priority = excluded.priority,
          enabled = excluded.enabled`,
       [
@@ -553,6 +571,7 @@ export class DvrDatabase {
         pass.paddingStartMin,
         pass.paddingEndMin,
         pass.keepLimit,
+        pass.keepDays,
         pass.priority,
         pass.enabled ? 1 : 0,
         pass.createdAt,
@@ -606,6 +625,8 @@ export class DvrDatabase {
       commercialCount: Number(r.commercial_count ?? 0),
       watchedPositionSec: Number(r.watched_position_sec ?? 0),
       watched: Number(r.watched) === 1,
+      keepDays: Number(r.keep_days ?? 30),
+      keepProtected: Number(r.keep_protected ?? 0) === 1,
       createdAt: String(r.created_at),
     };
   }
@@ -618,8 +639,9 @@ export class DvrDatabase {
         scheduled_start, scheduled_end, actual_start, actual_end,
         padding_start_min, padding_end_min, status, error_message,
         file_path, file_size_bytes, duration_sec, thumbnail_path,
-        commercial_scan_status, commercial_count, watched_position_sec, watched, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        commercial_scan_status, commercial_count, watched_position_sec, watched,
+        keep_days, keep_protected, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         rec.id,
         rec.programId,
@@ -648,6 +670,8 @@ export class DvrDatabase {
         rec.commercialCount,
         rec.watchedPositionSec,
         rec.watched ? 1 : 0,
+        rec.keepDays,
+        rec.keepProtected ? 1 : 0,
         rec.createdAt,
       ],
     );
@@ -662,7 +686,8 @@ export class DvrDatabase {
         scheduled_start = ?, scheduled_end = ?, actual_start = ?, actual_end = ?,
         padding_start_min = ?, padding_end_min = ?, status = ?, error_message = ?,
         file_path = ?, file_size_bytes = ?, duration_sec = ?, thumbnail_path = ?,
-        commercial_scan_status = ?, commercial_count = ?, watched_position_sec = ?, watched = ?
+        commercial_scan_status = ?, commercial_count = ?, watched_position_sec = ?, watched = ?,
+        keep_days = ?, keep_protected = ?
        WHERE id = ?`,
       [
         next.scheduledStart,
@@ -681,6 +706,8 @@ export class DvrDatabase {
         next.commercialCount,
         next.watchedPositionSec,
         next.watched ? 1 : 0,
+        next.keepDays,
+        next.keepProtected ? 1 : 0,
         id,
       ],
     );

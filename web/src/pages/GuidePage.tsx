@@ -20,9 +20,10 @@ import { ProgramModal } from '../components/ProgramModal';
 import { playTivoNavBloop, playTivoRecordTone, playTivoSelectChime } from '../utils/tivoSounds';
 
 interface GuidePageProps {
+  defaultRetentionDays: number;
   onWatchLive: (channel: Channel) => void;
-  onRecordEpisode: (program: Program) => Promise<void>;
-  onCreateSeriesPass: (program: Program, newOnly: boolean) => Promise<void>;
+  onRecordEpisode: (program: Program, keepDays?: number) => Promise<void>;
+  onCreateSeriesPass: (program: Program, newOnly: boolean, keepDays?: number) => Promise<void>;
   refreshSignal: number;
 }
 
@@ -31,6 +32,7 @@ const PIXELS_PER_SLOT = 186;
 const TOTAL_HOURS = 6;
 
 export function GuidePage({
+  defaultRetentionDays,
   onWatchLive,
   onRecordEpisode,
   onCreateSeriesPass,
@@ -462,11 +464,12 @@ export function GuidePage({
         <ProgramModal
           channel={modalSelection.channel}
           program={modalSelection.program}
+          defaultRetentionDays={defaultRetentionDays}
           existingRecordingStatus={grid?.recordingByProgramId[modalSelection.program.id]?.status}
           onClose={() => setModalSelection(null)}
           onWatchLive={onWatchLive}
-          onRecordEpisode={(p) => void onRecordEpisode(p)}
-          onCreateSeriesPass={(p, newOnly) => void onCreateSeriesPass(p, newOnly)}
+          onRecordEpisode={(p, keepDays) => void onRecordEpisode(p, keepDays)}
+          onCreateSeriesPass={(p, newOnly, keepDays) => void onCreateSeriesPass(p, newOnly, keepDays)}
         />
       )}
     </>

@@ -12,6 +12,7 @@ import { EpgService } from './epg/epgService.js';
 import { CommercialSkipService } from './dvr/commercialSkip.js';
 import { DvrRecorder } from './dvr/recorder.js';
 import { DvrScheduler } from './dvr/scheduler.js';
+import { DvrCleanupService } from './dvr/cleanupService.js';
 import { HlsLiveManager } from './streaming/hlsManager.js';
 import { LanDiscoveryResponder } from './discovery/lanDiscovery.js';
 import { DEFAULT_STREAMING_APPS } from './apps/defaultApps.js';
@@ -61,6 +62,10 @@ export async function createServer() {
   });
 
   const scheduler = new DvrScheduler(db, tunerPool, recorder, () => {
+    broadcast('schedule_updated', {});
+  });
+
+  const cleanup = new DvrCleanupService(db, () => {
     broadcast('schedule_updated', {});
   });
 
@@ -114,6 +119,7 @@ export async function createServer() {
       scheduler,
       recorder,
       commercialSkip,
+      cleanup,
       hls,
       broadcast,
     }),
@@ -149,12 +155,14 @@ export async function createServer() {
   }
 
   scheduler.start();
+  cleanup.start();
   hls.start();
   epg.startAutoRefresh();
   discovery.start();
 
   const shutdown = () => {
     scheduler.stop();
+    cleanup.stop();
     epg.stopAutoRefresh();
     recorder.stopAll();
     hls.stop();

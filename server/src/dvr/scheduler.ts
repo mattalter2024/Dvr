@@ -38,7 +38,13 @@ export class DvrScheduler {
    */
   scheduleProgram(
     programId: string,
-    opts?: { paddingStartMin?: number; paddingEndMin?: number; seriesPassId?: string | null },
+    opts?: {
+      paddingStartMin?: number;
+      paddingEndMin?: number;
+      keepDays?: number;
+      keepProtected?: boolean;
+      seriesPassId?: string | null;
+    },
   ): Recording {
     const existing = this.db.findRecordingByProgramId(programId);
     if (existing) {
@@ -83,6 +89,8 @@ export class DvrScheduler {
       commercialCount: 0,
       watchedPositionSec: 0,
       watched: false,
+      keepDays: opts?.keepDays !== undefined ? opts.keepDays : settings.defaultRetentionDays,
+      keepProtected: Boolean(opts?.keepProtected),
       createdAt: new Date().toISOString(),
     };
 
@@ -101,15 +109,16 @@ export class DvrScheduler {
     channelId: string,
     durationMinutes = 30,
     customTitle?: string,
+    keepDays?: number,
   ): Promise<Recording> {
     const channel = this.db.getChannel(channelId);
     if (!channel) {
       throw new Error(`Channel ${channelId} not found`);
     }
 
+    const settings = this.db.getSettings();
     const now = new Date();
     const end = new Date(now.getTime() + Math.max(1, durationMinutes) * 60 * 1000);
-    // Try to pull current EPG program title if no custom title provided
     const currentProgs = this.db.queryProgramsInRange(now.toISOString(), end.toISOString(), channelId);
     const current: Program | undefined = currentProgs[0];
 
@@ -141,6 +150,8 @@ export class DvrScheduler {
       commercialCount: 0,
       watchedPositionSec: 0,
       watched: false,
+      keepDays: keepDays !== undefined ? keepDays : settings.defaultRetentionDays,
+      keepProtected: false,
       createdAt: now.toISOString(),
     };
 
@@ -160,6 +171,7 @@ export class DvrScheduler {
     paddingStartMin?: number;
     paddingEndMin?: number;
     keepLimit?: number;
+    keepDays?: number;
     priority?: number;
   }): { seriesPass: SeriesPass; scheduledCount: number } {
     const settings = this.db.getSettings();
@@ -171,6 +183,7 @@ export class DvrScheduler {
       paddingStartMin: input.paddingStartMin ?? settings.defaultPaddingStartMin,
       paddingEndMin: input.paddingEndMin ?? settings.defaultPaddingEndMin,
       keepLimit: input.keepLimit ?? 0,
+      keepDays: input.keepDays !== undefined ? input.keepDays : settings.defaultRetentionDays,
       priority: input.priority ?? 50,
       enabled: true,
       createdAt: new Date().toISOString(),
@@ -202,6 +215,7 @@ export class DvrScheduler {
       this.scheduleProgram(prog.id, {
         paddingStartMin: pass.paddingStartMin,
         paddingEndMin: pass.paddingEndMin,
+        keepDays: pass.keepDays,
         seriesPassId: pass.id,
       });
       scheduled++;
@@ -258,7 +272,7 @@ export class DvrScheduler {
         .filter((r) => r.seriesPassId === pass.id)
         .sort((a, b) => Date.parse(b.scheduledStart) - Date.parse(a.scheduledStart));
       if (episodes.length <= pass.keepLimit) continue;
-      const toDelete = episodes.slice(pass.keepLimit);
+      const toDelete = episodes.slice(pass.keepLimit).filter((r) => !r.keepProtected);
       for (const rec of toDelete) {
         if (rec.filePath && fs.existsSync(rec.filePath)) {
           try {

@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { CircleDot, Play, Repeat, X } from 'lucide-react';
 import {
   formatTime,
   getProgramScreenshotUrl,
+  RETENTION_OPTIONS,
   type Channel,
   type Program,
 } from '../api/client';
@@ -9,22 +11,25 @@ import {
 interface ProgramModalProps {
   channel: Channel;
   program: Program;
+  defaultRetentionDays?: number;
   existingRecordingStatus?: string;
   onClose: () => void;
   onWatchLive: (channel: Channel) => void;
-  onRecordEpisode: (program: Program) => void;
-  onCreateSeriesPass: (program: Program, newOnly: boolean) => void;
+  onRecordEpisode: (program: Program, keepDays?: number) => void;
+  onCreateSeriesPass: (program: Program, newOnly: boolean, keepDays?: number) => void;
 }
 
 export function ProgramModal({
   channel,
   program,
+  defaultRetentionDays = 30,
   existingRecordingStatus,
   onClose,
   onWatchLive,
   onRecordEpisode,
   onCreateSeriesPass,
 }: ProgramModalProps) {
+  const [keepDays, setKeepDays] = useState<number>(defaultRetentionDays);
   const now = Date.now();
   const isAiringNow = Date.parse(program.startTime) <= now && Date.parse(program.endTime) > now;
   const shotUrl = getProgramScreenshotUrl(program, channel);
@@ -87,6 +92,28 @@ export function ProgramModal({
             {program.description || 'Over-the-air broadcast television program.'}
           </p>
 
+          {/* How long to save this recording */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <label
+              htmlFor="modal-keep-days"
+              style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}
+            >
+              Save recording for:
+            </label>
+            <select
+              id="modal-keep-days"
+              value={keepDays}
+              onChange={(e) => setKeepDays(Number(e.target.value))}
+              style={{ padding: '6px 10px', fontSize: 13 }}
+            >
+              {RETENTION_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
             {isAiringNow && (
               <button
@@ -102,7 +129,7 @@ export function ProgramModal({
             <button
               className="btn btn-danger"
               onClick={() => {
-                onRecordEpisode(program);
+                onRecordEpisode(program, keepDays);
                 onClose();
               }}
             >
@@ -111,7 +138,7 @@ export function ProgramModal({
             <button
               className="btn btn-secondary"
               onClick={() => {
-                onCreateSeriesPass(program, true);
+                onCreateSeriesPass(program, true, keepDays);
                 onClose();
               }}
             >
@@ -120,7 +147,7 @@ export function ProgramModal({
             <button
               className="btn btn-secondary"
               onClick={() => {
-                onCreateSeriesPass(program, false);
+                onCreateSeriesPass(program, false, keepDays);
                 onClose();
               }}
             >
