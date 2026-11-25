@@ -910,48 +910,43 @@ private fun HomeTvView(
                         Text("Frequent Channels", color = TivoMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             items(frequentRows, key = { it.channel.id }) { row ->
-                                val prog = row.programs.firstOrNull()
                                 val selected = activeHero.channel.id == row.channel.id
+                                val mark = row.channel.network
+                                    .takeIf { it.isNotBlank() && it != "OTA" }
+                                    ?.removePrefix("The ")
+                                    ?: row.channel.guideName.substringBefore("-")
                                 Surface(
                                     color = if (selected) Color(0xFF1D2A40) else Color(0xCC121A29),
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(
                                         if (selected) 1.5.dp else 1.dp,
                                         if (selected) TivoAccent else Color(0x18FFFFFF),
                                     ),
                                     modifier = Modifier
-                                        .width(196.dp)
+                                        .size(width = 104.dp, height = 74.dp)
                                         .clickable {
                                             if (selected) onWatchChannel(row.channel)
                                             else heroRow = row
                                         },
                                 ) {
-                                    Column {
-                                        if (prog != null) {
-                                            ShowScreenshot(
-                                                url = api.programScreenshotUrl(prog, row.channel),
-                                                contentDescription = prog.title,
-                                                imageLoader = imageLoader,
-                                                width = 196.dp,
-                                                height = 104.dp,
-                                            )
-                                        }
-                                        Column(Modifier.padding(9.dp)) {
-                                            Text(
-                                                "${row.channel.guideNumber} ${row.channel.guideName}",
-                                                color = TivoAccent,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                            )
-                                            Text(
-                                                prog?.title ?: "Live Broadcast",
-                                                color = Color.White,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                        }
+                                    Column(
+                                        modifier = Modifier.fillMaxSize().padding(8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center,
+                                    ) {
+                                        Text(
+                                            mark,
+                                            color = Color.White,
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            maxLines = 1,
+                                        )
+                                        Text(
+                                            row.channel.guideNumber,
+                                            color = TivoMuted,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
                                     }
                                 }
                             }

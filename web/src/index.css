@@ -423,13 +423,19 @@ select {
 }
 
 .dtv-channel-tile {
-  flex: 0 0 218px;
+  flex: 0 0 104px;
+  height: 76px;
   scroll-snap-align: start;
-  background: rgba(18, 26, 41, 0.88);
+  background: rgba(18, 26, 41, 0.9);
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  overflow: hidden;
-  text-align: left;
+  border-radius: 12px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
   transition: border-color 0.14s, background 0.14s, transform 0.12s;
 }
 
@@ -438,6 +444,27 @@ select {
 .dtv-channel-tile.active {
   border-color: var(--accent);
   background: var(--bg-elevated);
+}
+
+.dtv-channel-icon-logo {
+  max-width: 72px;
+  max-height: 36px;
+  object-fit: contain;
+  display: block;
+}
+
+.dtv-channel-icon-mark {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.dtv-channel-icon-num {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .dtv-rec-tile {

@@ -219,10 +219,17 @@ export function HomePage({
             <div className="dtv-row-scroll">
               {frequentChannels.map(({ channel, current }) => {
                 const isSelected = heroItem.channel.id === channel.id;
+                const badgeText =
+                  channel.network && channel.network !== 'OTA'
+                    ? channel.network.replace(/^The\s+/i, '')
+                    : channel.guideName.split('-')[0];
+
                 return (
                   <button
                     key={channel.id}
                     className={`dtv-channel-tile ${isSelected ? 'active' : ''}`}
+                    title={`${channel.guideNumber} ${channel.guideName}${current ? ` — ${current.title}` : ''}`}
+                    aria-label={`${channel.guideNumber} ${channel.guideName}`}
                     onMouseEnter={() => setPreviewChannelId(channel.id)}
                     onFocus={() => {
                       playTivoNavBloop();
@@ -233,53 +240,17 @@ export function HomePage({
                       onWatchLive(channel);
                     }}
                   >
-                    <div className="show-shot-wrap">
+                    {channel.logoUrl ? (
                       <img
-                        src={getProgramScreenshotUrl(current, channel)}
-                        alt={current?.title ?? channel.guideName}
-                        className="show-shot-img"
+                        src={channel.logoUrl}
+                        alt={channel.guideName}
+                        className="dtv-channel-icon-logo"
                         loading="lazy"
                       />
-                      <div className="show-shot-overlay">
-                        <span
-                          className="pill"
-                          style={{ background: 'rgba(7, 11, 20, 0.8)', color: '#e2e8f0' }}
-                        >
-                          {channel.guideNumber} {channel.guideName}
-                        </span>
-                        {current?.isLive ? (
-                          <span
-                            className="pill pill-live"
-                            style={{ background: 'rgba(127, 29, 29, 0.85)' }}
-                          >
-                            Live
-                          </span>
-                        ) : (channel.watchCount ?? 0) > 0 ? (
-                          <span
-                            className="pill"
-                            style={{ background: 'rgba(7, 11, 20, 0.78)', color: '#93c5fd' }}
-                          >
-                            {channel.watchCount}×
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div style={{ padding: '9px 11px 10px' }}>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 600,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {current?.title ?? 'Live Broadcast'}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                        {current ? `${formatTime(current.startTime)} – ${formatTime(current.endTime)}` : channel.network}
-                      </div>
-                    </div>
+                    ) : (
+                      <span className="dtv-channel-icon-mark">{badgeText}</span>
+                    )}
+                    <span className="dtv-channel-icon-num">{channel.guideNumber}</span>
                   </button>
                 );
               })}
