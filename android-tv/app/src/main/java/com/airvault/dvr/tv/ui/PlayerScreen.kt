@@ -31,12 +31,12 @@ import com.airvault.dvr.tv.data.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val TivoCapsuleTop = Color(0xEE0B2252)
-private val TivoCapsuleBottom = Color(0xF505102B)
-private val TivoSkipGreen = Color(0xFF22C55E)
-private val TivoGold = Color(0xFFFACC15)
-private val TivoBlueBtn = Color(0xFF1D4ED8)
-private val TivoBorder = Color(0x7793C5FD)
+private val TivoCapsuleTop = Color(0xE60C121E)
+private val TivoCapsuleBottom = Color(0xEC0C121E)
+private val TivoSkipGreen = Color(0xFF34D399)
+private val TivoGold = Color(0xFFD97706)
+private val TivoBlueBtn = Color(0xFF2563EB)
+private val TivoBorder = Color(0x28FFFFFF)
 
 sealed interface TvPlaybackRequest {
     data class Live(val channel: TvChannel) : TvPlaybackRequest

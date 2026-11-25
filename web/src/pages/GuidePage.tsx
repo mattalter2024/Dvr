@@ -21,7 +21,7 @@ interface GuidePageProps {
 }
 
 const SLOT_MINUTES = 30;
-const PIXELS_PER_SLOT = 192;
+const PIXELS_PER_SLOT = 186;
 const TOTAL_HOURS = 6;
 
 export function GuidePage({
@@ -39,7 +39,6 @@ export function GuidePage({
     rows: Array<{ channel: Channel; programs: Program[] }>;
     recordingByProgramId: Record<string, { id: string; status: string }>;
   } | null>(null);
-  // Iconic TiVo Top Synopsis Banner follows hovered/focused cell in real time!
   const [focused, setFocused] = useState<{ channel: Channel; program: Program } | null>(null);
   const [modalSelection, setModalSelection] = useState<{
     channel: Channel;
@@ -116,33 +115,30 @@ export function GuidePage({
     <>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Live TV Guide</h1>
-          <p className="page-subtitle">
-            Classic TiVo Program Grid · Highlight any show for synopsis, Record (R), or OnePass (RR)
-          </p>
+          <h1 className="page-title">Guide</h1>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <Search
-              size={15}
+              size={14}
               color="var(--text-muted)"
-              style={{ position: 'absolute', left: 12, pointerEvents: 'none' }}
+              style={{ position: 'absolute', left: 11, pointerEvents: 'none' }}
             />
             <input
               type="text"
               placeholder="Search guide..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ paddingLeft: 34, width: 200 }}
+              style={{ paddingLeft: 32, width: 190 }}
             />
           </div>
 
           <button
-            className={`btn ${favoritesOnly ? 'btn-amber' : 'btn-secondary'}`}
+            className={`btn ${favoritesOnly ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setFavoritesOnly((v) => !v)}
           >
-            <Star size={15} /> Favorites
+            <Star size={14} /> Favorites
           </button>
 
           <button
@@ -152,7 +148,7 @@ export function GuidePage({
               setOffsetHours((h) => h - 3);
             }}
           >
-            <ChevronLeft size={16} /> -3h
+            <ChevronLeft size={15} /> -3h
           </button>
           <button
             className="btn btn-secondary"
@@ -170,38 +166,38 @@ export function GuidePage({
               setOffsetHours((h) => h + 3);
             }}
           >
-            +3h <ChevronRight size={16} />
+            +3h <ChevronRight size={15} />
           </button>
           <button className="btn btn-secondary" onClick={() => void loadGuide()}>
-            <RefreshCw size={15} />
+            <RefreshCw size={14} />
           </button>
         </div>
       </div>
 
-      {/* Signature TiVo Top Program Synopsis Banner */}
+      {/* Top Program Synopsis Bar */}
       {focused && (
         <div className="tivo-guide-synopsis">
-          <div style={{ flex: 1, minWidth: 280 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 900, color: '#facc15', fontSize: 15 }}>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 600, color: 'var(--accent)', fontSize: 13 }}>
                 {focused.channel.guideNumber} {focused.channel.guideName}
               </span>
-              <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
                 {formatTime(focused.program.startTime)} – {formatTime(focused.program.endTime)}
               </span>
               <span className="pill pill-hd">{focused.program.category}</span>
               {focused.program.episodeNum && (
                 <span className="pill pill-hd">{focused.program.episodeNum}</span>
               )}
-              {focused.program.isNew && <span className="pill pill-new">NEW</span>}
-              {focused.program.isLive && <span className="pill pill-live">LIVE</span>}
+              {focused.program.isNew && <span className="pill pill-new">New</span>}
+              {focused.program.isLive && <span className="pill pill-live">Live</span>}
               {focusedRec && <span className="tivo-rec-badge">R</span>}
             </div>
-            <div style={{ fontSize: 21, fontWeight: 900, marginBottom: 4 }}>
+            <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 3 }}>
               {focused.program.title}
               {focused.program.subtitle && (
-                <span style={{ fontWeight: 600, fontSize: 15, color: '#93c5fd', marginLeft: 10 }}>
-                  “{focused.program.subtitle}”
+                <span style={{ fontWeight: 400, fontSize: 14, color: 'var(--text-secondary)', marginLeft: 8 }}>
+                  — {focused.program.subtitle}
                 </span>
               )}
             </div>
@@ -210,10 +206,10 @@ export function GuidePage({
                 fontSize: 13,
                 color: 'var(--text-secondary)',
                 lineHeight: 1.45,
-                maxWidth: 820,
+                maxWidth: 780,
               }}
             >
-              {focused.program.description || 'Over-the-air broadcast television program.'}
+              {focused.program.description || 'Over-the-air broadcast program.'}
             </div>
           </div>
 
@@ -226,7 +222,7 @@ export function GuidePage({
                   onWatchLive(focused.channel);
                 }}
               >
-                <Play size={15} /> Watch Live
+                <Play size={14} /> Watch
               </button>
             )}
             <button
@@ -236,31 +232,31 @@ export function GuidePage({
                 void onRecordEpisode(focused.program);
               }}
             >
-              <CircleDot size={15} /> {focusedRec ? 'Scheduled' : 'Record'}
+              <CircleDot size={14} /> {focusedRec ? 'Scheduled' : 'Record'}
             </button>
             <button
-              className="btn btn-amber"
+              className="btn btn-secondary"
               onClick={() => {
                 playTivoRecordTone();
                 void onCreateSeriesPass(focused.program, true);
               }}
             >
-              <Repeat size={15} /> OnePass
+              <Repeat size={14} /> OnePass
             </button>
           </div>
         </div>
       )}
 
-      {/* Classic TiVo Deep-Blue EPG Grid */}
+      {/* EPG Grid */}
       <div className="epg-wrapper">
         <div className="epg-scroll">
-          <div style={{ width: 196 + totalWidth, position: 'relative' }}>
+          <div style={{ width: 184 + totalWidth, position: 'relative' }}>
             <div className="epg-header-row">
               <div
                 className="epg-channel-col"
-                style={{ fontWeight: 800, fontSize: 12, color: '#facc15', letterSpacing: '0.06em' }}
+                style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-muted)' }}
               >
-                OTA CHANNELS
+                Channels
               </div>
               {timeSlots.map((slot) => (
                 <div key={slot.ms} className="epg-time-slot" style={{ width: PIXELS_PER_SLOT }}>
@@ -270,7 +266,9 @@ export function GuidePage({
             </div>
 
             {loading && !grid && (
-              <div style={{ padding: 32, color: 'var(--text-secondary)' }}>Loading TV guide...</div>
+              <div style={{ padding: 28, color: 'var(--text-secondary)', fontSize: 14 }}>
+                Loading guide...
+              </div>
             )}
 
             {filteredRows.map(({ channel, programs }) => (
@@ -292,22 +290,22 @@ export function GuidePage({
                       }}
                       title="Watch channel live"
                     >
-                      <div style={{ fontWeight: 900, fontSize: 17, color: '#facc15' }}>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--accent)' }}>
                         {channel.guideNumber}
                       </div>
-                      <div style={{ fontSize: 12, color: '#dbeafe', fontWeight: 700 }}>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                         {channel.guideName}
                       </div>
                     </button>
                     <button
                       onClick={() => void toggleFavorite(channel)}
                       aria-label="Toggle favorite"
-                      style={{ padding: 6 }}
+                      style={{ padding: 5 }}
                     >
                       <Star
-                        size={16}
-                        color={channel.favorite ? '#facc15' : '#4b6b9e'}
-                        fill={channel.favorite ? '#facc15' : 'none'}
+                        size={14}
+                        color={channel.favorite ? '#93c5fd' : '#475569'}
+                        fill={channel.favorite ? '#93c5fd' : 'none'}
                       />
                     </button>
                   </div>
@@ -324,7 +322,7 @@ export function GuidePage({
                     );
                     if (pEnd <= pStart) return null;
                     const left = (pStart - startMs) * pxPerMs + 3;
-                    const width = Math.max(48, (pEnd - pStart) * pxPerMs - 6);
+                    const width = Math.max(46, (pEnd - pStart) * pxPerMs - 6);
                     const airingNow =
                       Date.parse(prog.startTime) <= nowMs && Date.parse(prog.endTime) > nowMs;
                     const recInfo = grid?.recordingByProgramId[prog.id];
@@ -349,15 +347,15 @@ export function GuidePage({
                       >
                         <div
                           style={{
-                            fontWeight: 800,
-                            fontSize: 14,
+                            fontWeight: 600,
+                            fontSize: 13,
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             width: '100%',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 6,
+                            gap: 5,
                           }}
                         >
                           {recInfo && <span className="tivo-rec-badge">R</span>}
@@ -371,19 +369,14 @@ export function GuidePage({
                             alignItems: 'center',
                             gap: 6,
                             fontSize: 11,
-                            color: 'var(--text-secondary)',
+                            color: 'var(--text-muted)',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                           }}
                         >
                           <span>{prog.category}</span>
                           {prog.episodeNum && <span>· {prog.episodeNum}</span>}
-                          {prog.isNew && (
-                            <span style={{ color: '#7dd3fc', fontWeight: 800 }}>NEW</span>
-                          )}
-                          {prog.isLive && (
-                            <span style={{ color: '#fca5a5', fontWeight: 800 }}>LIVE</span>
-                          )}
+                          {prog.isNew && <span style={{ color: '#93c5fd' }}>New</span>}
                         </div>
                       </button>
                     );

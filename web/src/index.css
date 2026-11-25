@@ -1,30 +1,33 @@
 :root {
-  /* Classic TiVo Deep Cobalt & Royal Blue Broadcast Palette */
-  --tivo-bg-deep: #04102b;
-  --tivo-bg-mid: #0a2257;
-  --tivo-bg-panel: rgba(11, 31, 74, 0.88);
-  --tivo-bg-card: rgba(15, 42, 98, 0.85);
-  --tivo-bg-hover: rgba(24, 63, 140, 0.92);
-  --tivo-border: rgba(125, 179, 255, 0.22);
-  --tivo-border-strong: rgba(147, 197, 253, 0.42);
+  /* Restrained Modern Dark Midnight-Slate Palette (subtle TiVo navy undertone, zero neon) */
+  --bg-canvas: #0b101b;
+  --bg-rail: #0e1422;
+  --bg-surface: #121a29;
+  --bg-elevated: #172133;
+  --bg-hover: #1d2a40;
 
-  --text-primary: #f8fbff;
-  --text-secondary: #b6c9e8;
-  --text-muted: #7995c4;
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
 
-  /* Iconic TiVo Accents */
-  --tivo-gold: #facc15;
-  --tivo-gold-glow: rgba(250, 204, 21, 0.42);
-  --tivo-cyan: #38bdf8;
-  --tivo-skip-green: #22c55e;
-  --tivo-skip-glow: rgba(34, 197, 94, 0.35);
-  --tivo-rec-red: #ef4444;
-  --tivo-ad-amber: #f59e0b;
+  --text-primary: #eef2f8;
+  --text-secondary: #98a6bd;
+  --text-muted: #64748b;
 
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --rail-width: 256px;
+  --accent: #60a5fa;
+  --accent-soft: rgba(96, 165, 250, 0.14);
+  --focus-ring: #93c5fd;
+
+  --skip-green: #34d399;
+  --skip-soft: rgba(52, 211, 153, 0.12);
+  --rec-red: #ef4444;
+  --rec-soft: rgba(239, 68, 68, 0.14);
+  --ad-amber: #d97706;
+  --ad-soft: rgba(217, 119, 6, 0.16);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --rail-width: 224px;
 }
 
 * {
@@ -37,24 +40,20 @@ html,
 body,
 #root {
   height: 100%;
-  background:
-    radial-gradient(ellipse at 22% 0%, #154399 0%, transparent 56%),
-    radial-gradient(ellipse at 92% 95%, #0c3178 0%, transparent 52%),
-    linear-gradient(160deg, #071940 0%, var(--tivo-bg-deep) 65%, #020817 100%);
+  background: var(--bg-canvas);
   color: var(--text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
 
-/* Iconic TiVo 10-foot high-contrast Gold/Yellow focus highlight for D-pad remotes */
+/* Crisp, understated D-pad / keyboard focus ring */
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 [tabindex]:focus-visible {
-  outline: 3px solid var(--tivo-gold);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
-  box-shadow: 0 0 0 6px var(--tivo-gold-glow);
 }
 
 button {
@@ -68,11 +67,12 @@ button {
 input,
 select {
   font: inherit;
+  font-size: 14px;
   color: var(--text-primary);
-  background: rgba(4, 15, 40, 0.85);
-  border: 1px solid var(--tivo-border-strong);
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  padding: 10px 14px;
+  padding: 9px 12px;
 }
 
 .app-shell {
@@ -81,132 +81,122 @@ select {
   width: 100vw;
 }
 
-/* ==================== TIVO CENTRAL LEFT RAIL ==================== */
+/* ==================== LEFT NAVIGATION RAIL ==================== */
 .tv-rail {
   width: var(--rail-width);
   flex-shrink: 0;
-  background: linear-gradient(180deg, rgba(8, 25, 64, 0.96) 0%, rgba(4, 14, 38, 0.98) 100%);
-  border-right: 1px solid var(--tivo-border);
+  background: var(--bg-rail);
+  border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  padding: 22px 16px;
-  gap: 8px;
-  box-shadow: 6px 0 32px rgba(0, 0, 0, 0.42);
+  padding: 20px 12px;
+  gap: 4px;
 }
 
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 6px 10px 18px;
-  border-bottom: 1px solid var(--tivo-border);
-  margin-bottom: 8px;
+  gap: 10px;
+  padding: 4px 10px 18px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .tivo-mascot {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: linear-gradient(145deg, #2563eb, #0284c7 60%, #22c55e);
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
   display: grid;
   place-items: center;
-  border: 2px solid rgba(250, 204, 21, 0.75);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
   flex-shrink: 0;
 }
 
 .brand-title {
-  font-size: 19px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .brand-sub {
   font-size: 11px;
-  color: var(--tivo-gold);
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  font-weight: 700;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
-/* Signature TiVo glossy horizontal selection pill */
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 13px 16px;
-  border-radius: 999px;
-  font-size: 15px;
-  font-weight: 700;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-secondary);
-  transition: background 0.15s, color 0.15s, transform 0.12s, box-shadow 0.15s;
+  transition: background 0.14s, color 0.14s;
   text-align: left;
-  border: 1px solid transparent;
 }
 
 .nav-item:hover {
-  background: rgba(37, 99, 235, 0.28);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
 }
 
 .nav-item.active {
-  background: linear-gradient(90deg, #1d4ed8 0%, #0284c7 100%);
-  color: #ffffff;
-  border: 1px solid rgba(250, 204, 21, 0.85);
-  box-shadow: 0 0 22px rgba(56, 189, 248, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .nav-badge {
   margin-left: auto;
   font-size: 11px;
-  font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--tivo-rec-red);
-  color: #fff;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--rec-soft);
+  color: #fca5a5;
 }
 
 .rail-footer {
   margin-top: auto;
-  padding-top: 14px;
-  border-top: 1px solid var(--tivo-border);
+  padding: 14px 8px 0;
+  border-top: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   gap: 8px;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .tuner-pill {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(6, 20, 52, 0.9);
-  border: 1px solid var(--tivo-border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding: 8px 11px;
+  padding: 7px 10px;
+  color: var(--text-secondary);
 }
 
 .dot {
-  width: 9px;
-  height: 9px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
 }
 .dot.live {
-  background: var(--tivo-skip-green);
-  box-shadow: 0 0 8px var(--tivo-skip-green);
+  background: var(--skip-green);
 }
 .dot.rec {
-  background: var(--tivo-rec-red);
-  box-shadow: 0 0 10px var(--tivo-rec-red);
-  animation: pulse 1.2s infinite;
+  background: var(--rec-red);
+  animation: pulse 1.6s infinite;
 }
 .dot.partial {
-  background: conic-gradient(var(--tivo-skip-green) 0deg 180deg, rgba(255, 255, 255, 0.18) 180deg 360deg);
-  border: 1px solid var(--tivo-skip-green);
+  background: conic-gradient(var(--skip-green) 0deg 180deg, rgba(255, 255, 255, 0.18) 180deg 360deg);
 }
 
 @keyframes pulse {
@@ -214,14 +204,14 @@ select {
   50% { opacity: 0.35; }
 }
 
-/* ==================== MAIN BROADCAST STAGE ==================== */
+/* ==================== MAIN CONTENT STAGE ==================== */
 .main-stage {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 32px 44px;
+  padding: 28px 34px 48px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .page-header {
@@ -233,227 +223,199 @@ select {
 }
 
 .page-title {
-  font-size: 28px;
-  font-weight: 900;
+  font-size: 22px;
+  font-weight: 700;
   letter-spacing: -0.02em;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
 }
 
 .page-subtitle {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-secondary);
   margin-top: 3px;
 }
 
-/* ==================== TIVO GLOSSY BUTTONS & PILLS ==================== */
+.section-heading {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ==================== RESTRAINED BUTTONS & TAGS ==================== */
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 14px;
-  transition: transform 0.12s, filter 0.15s, background 0.15s, border-color 0.15s;
-}
-
-.btn:active {
-  transform: scale(0.97);
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  font-size: 13px;
+  transition: background 0.14s, border-color 0.14s, color 0.14s;
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
-  border: 1px solid rgba(147, 197, 253, 0.55);
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(29, 78, 216, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  background: #2563eb;
+  color: #ffffff;
 }
 .btn-primary:hover {
-  filter: brightness(1.12);
+  background: #1d4ed8;
 }
 
 .btn-skip {
-  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
-  border: 1px solid rgba(187, 247, 208, 0.7);
-  color: #032212;
-  font-weight: 900;
-  box-shadow: 0 0 18px var(--tivo-skip-glow);
+  background: var(--skip-soft);
+  border: 1px solid rgba(52, 211, 153, 0.32);
+  color: #6ee7b7;
+  font-weight: 600;
 }
 .btn-skip:hover {
-  filter: brightness(1.08);
+  background: rgba(52, 211, 153, 0.2);
 }
 
 .btn-danger {
-  background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%);
-  color: #fff;
-  border: 1px solid rgba(252, 165, 165, 0.45);
+  background: var(--rec-soft);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: #fca5a5;
 }
 .btn-danger:hover {
-  filter: brightness(1.1);
+  background: rgba(239, 68, 68, 0.22);
 }
 
 .btn-secondary {
-  background: rgba(15, 42, 98, 0.85);
-  border: 1px solid var(--tivo-border-strong);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
   color: var(--text-primary);
 }
 .btn-secondary:hover {
-  background: var(--tivo-bg-hover);
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
 }
 
 .btn-amber {
-  background: linear-gradient(180deg, rgba(250, 204, 21, 0.26), rgba(217, 119, 6, 0.25));
-  border: 1px solid rgba(250, 204, 21, 0.7);
-  color: #fef08a;
+  background: var(--ad-soft);
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  color: #fcd34d;
 }
 .btn-amber:hover {
-  background: rgba(250, 204, 21, 0.34);
+  background: rgba(217, 119, 6, 0.25);
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: 11px;
-  font-weight: 800;
-  padding: 3px 10px;
-  border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 5px;
+  letter-spacing: 0.02em;
 }
 .pill-live {
-  background: rgba(239, 68, 68, 0.24);
-  color: #fecaca;
-  border: 1px solid rgba(239, 68, 68, 0.65);
+  background: var(--rec-soft);
+  color: #fca5a5;
 }
 .pill-new {
-  background: rgba(56, 189, 248, 0.22);
-  color: #bae6fd;
-  border: 1px solid rgba(56, 189, 248, 0.5);
+  background: var(--accent-soft);
+  color: #93c5fd;
 }
-/* Iconic TiVo SkipMode Green Pill */
 .pill-skip {
-  background: linear-gradient(180deg, #22c55e, #15803d);
-  color: #ffffff;
-  border: 1px solid #86efac;
-  box-shadow: 0 0 12px rgba(34, 197, 94, 0.45);
+  background: var(--skip-soft);
+  color: #6ee7b7;
 }
 .pill-ad {
-  background: rgba(245, 158, 11, 0.22);
-  color: #fde68a;
-  border: 1px solid rgba(250, 204, 21, 0.55);
+  background: var(--ad-soft);
+  color: #fcd34d;
 }
 .pill-ok {
-  background: rgba(34, 197, 94, 0.2);
-  color: #86efac;
-  border: 1px solid rgba(34, 197, 94, 0.45);
+  background: var(--skip-soft);
+  color: #6ee7b7;
 }
 .pill-hd {
-  background: rgba(147, 197, 253, 0.16);
-  color: #dbeafe;
-  border: 1px solid rgba(147, 197, 253, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
 }
 
-/* TiVo Recording Badges ("R" / "RR" OnePass) */
 .tivo-rec-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 20px;
+  min-width: 19px;
+  height: 18px;
   padding: 0 5px;
-  border-radius: 5px;
-  background: var(--tivo-rec-red);
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.85);
   color: #fff;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+  font-size: 10px;
+  font-weight: 700;
 }
 
-/* ==================== CARDS & TIVO CENTRAL LAYOUT ==================== */
+/* ==================== CARDS & GRIDS ==================== */
 .card {
-  background: var(--tivo-bg-panel);
-  border: 1px solid var(--tivo-border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 20px;
-  backdrop-filter: blur(10px);
-}
-
-.tivo-hero-bar {
-  background: linear-gradient(105deg, rgba(29, 78, 216, 0.55) 0%, rgba(12, 34, 84, 0.92) 55%, rgba(7, 24, 62, 0.96) 100%);
-  border: 1px solid rgba(147, 197, 253, 0.38);
-  border-radius: var(--radius-lg);
-  padding: 22px 26px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.38);
+  padding: 18px 20px;
 }
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
 }
 
 .channel-card {
-  background: linear-gradient(180deg, rgba(20, 52, 118, 0.9), rgba(10, 28, 70, 0.92));
-  border: 1px solid var(--tivo-border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  padding: 16px 18px;
+  padding: 15px 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   text-align: left;
-  transition: transform 0.14s, border-color 0.14s, box-shadow 0.14s, background 0.14s;
+  transition: background 0.14s, border-color 0.14s;
 }
 
 .channel-card:hover,
 .channel-card:focus-visible {
-  transform: translateY(-2px);
-  border-color: var(--tivo-gold);
-  background: linear-gradient(180deg, rgba(29, 78, 216, 0.68), rgba(14, 39, 94, 0.95));
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42);
+  background: var(--bg-elevated);
+  border-color: var(--border-strong);
 }
 
 .channel-badge-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .channel-num {
-  font-size: 20px;
-  font-weight: 900;
-  color: var(--tivo-gold);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 .channel-name {
   font-size: 13px;
   color: var(--text-secondary);
-  font-weight: 700;
+  font-weight: 500;
 }
 
-/* ==================== TIVO "MY SHOWS" TWO-PANE BROWSER ==================== */
+/* ==================== MY SHOWS TWO-PANE BROWSER ==================== */
 .myshows-layout {
   display: grid;
-  grid-template-columns: 230px 1fr;
+  grid-template-columns: 208px 1fr;
   gap: 18px;
   flex: 1;
-  min-height: 460px;
+  min-height: 440px;
 }
 
 .myshows-folders {
-  background: var(--tivo-bg-panel);
-  border: 1px solid var(--tivo-border);
-  border-radius: var(--radius-lg);
-  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
   align-self: start;
 }
 
@@ -461,29 +423,29 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 700;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text-secondary);
   transition: background 0.12s, color 0.12s;
   text-align: left;
 }
 
 .myshows-folder-btn:hover {
-  background: rgba(37, 99, 235, 0.25);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
 }
 
 .myshows-folder-btn.active {
-  background: linear-gradient(90deg, #1d4ed8, #0369a1);
-  color: #fff;
-  border: 1px solid rgba(250, 204, 21, 0.75);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .myshows-list {
-  background: var(--tivo-bg-panel);
-  border: 1px solid var(--tivo-border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   overflow: hidden;
   display: flex;
@@ -495,34 +457,37 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 15px 20px;
-  border-bottom: 1px solid var(--tivo-border);
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
   transition: background 0.12s;
   flex-wrap: wrap;
 }
 
-.myshows-row:hover {
-  background: rgba(37, 99, 235, 0.22);
+.myshows-row:last-child {
+  border-bottom: none;
 }
 
-/* ==================== TIVO GUIDE TOP SYNOPSIS + BLUE GRID ==================== */
+.myshows-row:hover {
+  background: var(--bg-elevated);
+}
+
+/* ==================== GUIDE TOP SYNOPSIS + MATTE GRID ==================== */
 .tivo-guide-synopsis {
-  background: linear-gradient(95deg, rgba(16, 46, 108, 0.95) 0%, rgba(8, 24, 62, 0.96) 100%);
-  border: 1px solid var(--tivo-border-strong);
-  border-left: 5px solid var(--tivo-gold);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 16px 22px;
+  padding: 15px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  min-height: 112px;
+  min-height: 98px;
   flex-wrap: wrap;
 }
 
 .epg-wrapper {
-  background: rgba(6, 20, 52, 0.92);
-  border: 1px solid var(--tivo-border-strong);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   overflow: hidden;
   display: flex;
@@ -542,19 +507,19 @@ select {
   position: sticky;
   top: 0;
   z-index: 12;
-  background: linear-gradient(180deg, #0f2c6b, #091d4a);
-  border-bottom: 1px solid var(--tivo-border-strong);
+  background: var(--bg-rail);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .epg-channel-col {
-  width: 196px;
+  width: 184px;
   flex-shrink: 0;
   position: sticky;
   left: 0;
   z-index: 10;
-  background: #081a44;
-  border-right: 1px solid var(--tivo-border-strong);
-  padding: 11px 14px;
+  background: var(--bg-rail);
+  border-right: 1px solid var(--border-subtle);
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -562,22 +527,21 @@ select {
 
 .epg-header-row .epg-channel-col {
   z-index: 15;
-  background: #0c2459;
 }
 
 .epg-time-slot {
   flex-shrink: 0;
-  padding: 11px 12px;
-  font-size: 13px;
-  font-weight: 800;
-  color: #dbeafe;
-  border-right: 1px solid var(--tivo-border);
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-right: 1px solid var(--border-subtle);
 }
 
 .epg-row {
   display: flex;
-  border-bottom: 1px solid var(--tivo-border);
-  min-height: 72px;
+  border-bottom: 1px solid var(--border-subtle);
+  min-height: 66px;
 }
 
 .epg-track {
@@ -589,54 +553,52 @@ select {
   position: absolute;
   top: 4px;
   bottom: 4px;
-  background: linear-gradient(180deg, rgba(18, 48, 110, 0.92), rgba(11, 31, 76, 0.96));
-  border: 1px solid rgba(147, 197, 253, 0.24);
-  border-radius: 10px;
-  padding: 7px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 7px 11px;
   text-align: left;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 3px;
-  transition: background 0.12s, border-color 0.12s, transform 0.1s;
+  gap: 2px;
+  transition: background 0.12s, border-color 0.12s;
 }
 
 .epg-cell:hover,
 .epg-cell:focus-visible,
 .epg-cell.highlighted {
-  background: linear-gradient(180deg, #1d4ed8, #1e3a8a);
-  border-color: var(--tivo-gold);
-  box-shadow: inset 0 0 0 1px var(--tivo-gold);
+  background: var(--bg-hover);
+  border-color: var(--accent);
   z-index: 5;
 }
 
 .epg-cell.airing-now {
-  background: linear-gradient(180deg, rgba(2, 132, 199, 0.45), rgba(14, 41, 98, 0.95));
-  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(37, 99, 235, 0.15);
+  border-color: rgba(96, 165, 250, 0.22);
 }
 
 .epg-cell.has-rec {
-  border-left: 4px solid var(--tivo-rec-red);
+  border-left: 3px solid var(--rec-red);
 }
 
 .epg-now-line {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2px;
-  background: var(--tivo-gold);
+  width: 1.5px;
+  background: rgba(96, 165, 250, 0.75);
   z-index: 8;
   pointer-events: none;
-  box-shadow: 0 0 12px var(--tivo-gold);
 }
 
 /* ==================== MODAL ==================== */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(2, 8, 24, 0.8);
-  backdrop-filter: blur(8px);
+  background: rgba(5, 8, 16, 0.74);
+  backdrop-filter: blur(6px);
   display: grid;
   place-items: center;
   z-index: 50;
@@ -645,18 +607,18 @@ select {
 
 .modal-card {
   width: 100%;
-  max-width: 600px;
-  background: linear-gradient(180deg, #0f2961, #08173b);
-  border: 2px solid var(--tivo-border-strong);
-  border-radius: 22px;
-  padding: 28px;
+  max-width: 540px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65);
+  gap: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
 }
 
-/* ==================== TIVO TRICKPLAY & SKIPMODE FULLSCREEN PLAYER ==================== */
+/* ==================== MINIMAL TRICKPLAY PLAYER ==================== */
 .player-overlay {
   position: fixed;
   inset: 0;
@@ -678,35 +640,33 @@ select {
   top: 0;
   left: 0;
   right: 0;
-  padding: 22px 32px;
-  background: linear-gradient(180deg, rgba(4, 14, 38, 0.92), transparent);
+  padding: 20px 28px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.78), transparent);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
 
-/* Iconic TiVo Rounded TrickPlay Capsule at Bottom */
 .tivo-trickplay-dock {
   position: absolute;
   bottom: 24px;
-  left: 32px;
-  right: 32px;
-  background: linear-gradient(180deg, rgba(11, 34, 82, 0.94), rgba(5, 16, 42, 0.96));
-  border: 2px solid rgba(147, 197, 253, 0.45);
-  border-radius: 22px;
-  padding: 16px 24px;
+  left: 28px;
+  right: 28px;
+  background: rgba(12, 18, 30, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  padding: 14px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.72);
 }
 
 .timeline-track {
   position: relative;
-  height: 18px;
-  background: rgba(2, 10, 28, 0.9);
-  border: 1px solid rgba(147, 197, 253, 0.35);
+  height: 8px;
+  background: rgba(255, 255, 255, 0.16);
   border-radius: 999px;
   cursor: pointer;
   overflow: hidden;
@@ -717,7 +677,7 @@ select {
   top: 0;
   left: 0;
   bottom: 0;
-  background: linear-gradient(90deg, #16a34a, #22c55e 75%, #86efac);
+  background: var(--skip-green);
   border-radius: 999px;
   pointer-events: none;
 }
@@ -726,9 +686,7 @@ select {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: rgba(250, 204, 21, 0.85);
-  border-left: 1px solid #fff;
-  border-right: 1px solid #fff;
+  background: rgba(217, 119, 6, 0.85);
   pointer-events: none;
   z-index: 2;
 }
@@ -738,68 +696,67 @@ select {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.22);
   pointer-events: none;
   z-index: 3;
 }
 
 .skip-toast {
   position: absolute;
-  top: 90px;
-  right: 32px;
-  background: linear-gradient(135deg, rgba(9, 32, 74, 0.96), rgba(5, 46, 22, 0.96));
-  border: 2px solid var(--tivo-skip-green);
-  border-radius: 16px;
-  padding: 14px 20px;
+  top: 84px;
+  right: 28px;
+  background: rgba(15, 23, 38, 0.94);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  border-radius: 12px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   gap: 14px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.65), 0 0 24px var(--tivo-skip-glow);
   z-index: 120;
 }
 
 .progress-bar-bg {
-  height: 6px;
+  height: 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
 }
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #22c55e, #4ade80);
+  background: var(--accent);
 }
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 14px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .field label {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-secondary);
 }
 
 .toast-banner {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: linear-gradient(90deg, #102a63, #0b1e49);
-  border: 2px solid var(--tivo-gold);
+  bottom: 22px;
+  right: 22px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
   color: var(--text-primary);
-  padding: 12px 20px;
-  border-radius: 14px;
+  padding: 10px 16px;
+  border-radius: 10px;
   z-index: 90;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.6);
-  font-size: 14px;
-  font-weight: 700;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 @media (max-width: 900px) {
@@ -807,7 +764,7 @@ select {
     grid-template-columns: 1fr;
   }
   .tv-rail {
-    width: 78px;
+    width: 68px;
     padding: 16px 8px;
   }
   .brand-title,

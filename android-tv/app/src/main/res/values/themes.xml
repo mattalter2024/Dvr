@@ -1,6 +1,6 @@
 <resources>
     <style name="Theme.AirVaultTv" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#04102B</item>
-        <item name="android:colorBackground">#04102B</item>
+        <item name="android:windowBackground">#0B101B</item>
+        <item name="android:colorBackground">#0B101B</item>
     </style>
 </resources>

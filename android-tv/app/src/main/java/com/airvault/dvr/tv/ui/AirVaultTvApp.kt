@@ -25,15 +25,15 @@ import androidx.compose.ui.unit.sp
 import com.airvault.dvr.tv.data.*
 import kotlinx.coroutines.launch
 
-// Classic TiVo Deep Cobalt & Royal Blue Broadcast Palette
-private val TivoBgDeep = Color(0xFF04102B)
-private val TivoBgRail = Color(0xFF081940)
-private val TivoPanel = Color(0xFF0B2252)
-private val TivoCard = Color(0xFF12306E)
-private val TivoGold = Color(0xFFFACC15)
-private val TivoSkipGreen = Color(0xFF22C55E)
+// Restrained Modern Dark Midnight-Slate Palette (subtle TiVo navy undertone)
+private val TivoBgDeep = Color(0xFF0B101B)
+private val TivoBgRail = Color(0xFF0E1422)
+private val TivoPanel = Color(0xFF121A29)
+private val TivoCard = Color(0xFF172133)
+private val TivoGold = Color(0xFF60A5FA)
+private val TivoSkipGreen = Color(0xFF34D399)
 private val TivoRecRed = Color(0xFFEF4444)
-private val TivoCyan = Color(0xFF38BDF8)
+private val TivoCyan = Color(0xFF93C5FD)
 
 private enum class TvSection(val label: String) {
     MY_SHOWS("My Shows"),
@@ -121,7 +121,7 @@ fun AirVaultTvApp() {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Color(0xFF0A2257), TivoBgDeep))),
+                .background(TivoBgDeep),
         ) {
             // Classic TiVo Central Left Navigation Rail
             Column(

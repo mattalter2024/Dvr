@@ -1,4 +1,4 @@
-import { CircleDot, Film, Play, Tv, Zap } from 'lucide-react';
+import { CircleDot, Play, Tv } from 'lucide-react';
 import {
   formatDuration,
   formatTime,
@@ -36,34 +36,27 @@ export function HomePage({
 
   return (
     <>
-      {/* Iconic TiVo Central Hero Banner */}
-      <div className="tivo-hero-bar">
+      <div className="page-header">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <span className="pill pill-skip">
-              <Zap size={12} /> SKIPMODE™ READY
-            </span>
-            <span className="pill pill-hd">{nowPlaying.length} OTA CHANNELS</span>
-            {activeRecs.length > 0 && (
-              <span className="pill pill-live">● {activeRecs.length} RECORDING NOW</span>
-            )}
-          </div>
-          <h1 className="page-title">TiVo Central</h1>
+          <h1 className="page-title">Home</h1>
           <p className="page-subtitle">
-            Whole-House Over-the-Air DVR · One-Click Commercial Skip · Multi-Room Live TV
+            {nowPlaying.length} OTA channels
+            {health && !health.capabilities.ffmpegAvailable
+              ? ' · Simulation mode (install FFmpeg or use Docker for live video)'
+              : ''}
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {nowPlaying[0] && (
             <button
-              className="btn btn-skip"
+              className="btn btn-secondary"
               onClick={() => {
                 playTivoRecordTone();
                 onQuickTestRecord(nowPlaying[0].channel);
               }}
             >
-              <Zap size={16} /> 1-Min SkipMode Test ({nowPlaying[0].channel.guideNumber})
+              <CircleDot size={14} color="var(--rec-red)" /> 1-Min Test Recording
             </button>
           )}
           <button
@@ -73,77 +66,36 @@ export function HomePage({
               onOpenGuide();
             }}
           >
-            <Tv size={16} /> Live TV Guide
+            <Tv size={14} /> Open Guide
           </button>
         </div>
       </div>
 
-      {/* Host Media Engine Notice (if FFmpeg or Comskip missing locally) */}
-      {health && (!health.capabilities.ffmpegAvailable || !health.capabilities.comskipAvailable) && (
-        <div
-          className="card"
-          style={{
-            borderColor: 'rgba(250, 204, 21, 0.45)',
-            background: 'rgba(15, 38, 86, 0.85)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            flexWrap: 'wrap',
-            padding: '14px 20px',
-          }}
-        >
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            <strong style={{ color: '#facc15' }}>Media Engine:</strong> FFmpeg{' '}
-            <strong>
-              {health.capabilities.ffmpegAvailable ? 'Ready' : 'Not detected (Simulation active)'}
-            </strong>{' '}
-            · Comskip{' '}
-            <strong>
-              {health.capabilities.comskipAvailable
-                ? 'Ready'
-                : 'Using built-in FFmpeg commercial detector'}
-            </strong>{' '}
-            — Run <code>docker compose up</code> to bundle FFmpeg + Comskip automatically.
-          </div>
-        </div>
-      )}
-
-      {/* Currently Recording (Red Dot Chase-Play Strip) */}
+      {/* Currently Recording */}
       {activeRecs.length > 0 && (
         <section>
-          <h2
-            style={{
-              fontSize: 18,
-              fontWeight: 800,
-              marginBottom: 12,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 9,
-            }}
-          >
-            <span className="dot rec" /> Currently Recording (Chase-Play)
+          <h2 className="section-heading">
+            <span className="dot rec" /> Recording Now
           </h2>
           <div className="card-grid">
             {activeRecs.map((rec) => (
               <button
                 key={rec.id}
                 className="channel-card"
-                style={{ borderColor: 'rgba(239, 68, 68, 0.7)' }}
                 onClick={() => {
                   playTivoSelectChime();
                   onPlayRecording(rec);
                 }}
               >
                 <div className="channel-badge-row">
-                  <span className="pill pill-live">● REC · CH {rec.channelNumber}</span>
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                  <span className="pill pill-live">Recording · {rec.channelNumber}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {formatDuration(rec.durationSec)}
                   </span>
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>{rec.title}</div>
-                <div style={{ fontSize: 13, color: '#86efac', fontWeight: 600 }}>
-                  ▶ Watch from beginning while recording
+                <div style={{ fontSize: 15, fontWeight: 600 }}>{rec.title}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                  Watch from start
                 </div>
               </button>
             ))}
@@ -151,26 +103,12 @@ export function HomePage({
         </section>
       )}
 
-      {/* My Shows Quick Strip */}
+      {/* My Shows */}
       <section>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 12,
-          }}
-        >
-          <h2 style={{ fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Film size={18} color="#22c55e" /> My Shows — Ready to Watch
-          </h2>
-        </div>
-
+        <h2 className="section-heading">My Shows</h2>
         {myShowsRecent.length === 0 ? (
           <div className="card" style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-            Your My Shows list is empty. Click <strong>1-Min SkipMode Test</strong> above or pick any
-            program in the <strong>Live TV Guide</strong> to record and automatically tag commercial
-            breaks.
+            No recordings yet. Start a 1-minute test recording above or pick a show in the Guide.
           </div>
         ) : (
           <div className="card-grid">
@@ -192,38 +130,32 @@ export function HomePage({
                   }}
                 >
                   <div className="channel-badge-row">
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 7,
+                        fontSize: 12,
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
                       <span className={`dot ${statusDotClass}`} />
-                      <span className="pill pill-hd">
-                        {rec.channelNumber} {rec.channelName}
-                      </span>
+                      {rec.channelNumber} {rec.channelName}
                     </span>
                     {rec.commercialCount > 0 && (
-                      <span className="pill pill-skip">
-                        <Zap size={10} /> SKIP ({rec.commercialCount})
-                      </span>
+                      <span className="pill pill-skip">Skip ({rec.commercialCount})</span>
                     )}
                   </div>
-                  <div style={{ fontSize: 17, fontWeight: 800 }}>{rec.title}</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  <div style={{ fontSize: 15, fontWeight: 600 }}>{rec.title}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {rec.episodeNum ? `${rec.episodeNum} · ` : ''}
                     {formatDuration(rec.durationSec)}
                   </div>
-                  <div className="progress-bar-bg">
-                    <div className="progress-bar-fill" style={{ width: `${pct}%` }} />
-                  </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      color: '#facc15',
-                      fontSize: 13,
-                      fontWeight: 700,
-                    }}
-                  >
-                    <Play size={14} /> {rec.watchedPositionSec > 5 ? 'Resume Show' : 'Watch Ad-Free'}
-                  </div>
+                  {pct > 0 && (
+                    <div className="progress-bar-bg">
+                      <div className="progress-bar-fill" style={{ width: `${pct}%` }} />
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -231,21 +163,9 @@ export function HomePage({
         )}
       </section>
 
-      {/* What to Watch Now — Live OTA Channels */}
+      {/* Live Now */}
       <section>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 12,
-          }}
-        >
-          <h2 style={{ fontSize: 18, fontWeight: 800 }}>What to Watch Now — Live OTA</h2>
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Select any channel to tune live
-          </span>
-        </div>
+        <h2 className="section-heading">On Now</h2>
         <div className="card-grid">
           {nowPlaying.map(({ channel, current, next }) => (
             <button
@@ -261,17 +181,14 @@ export function HomePage({
                   <span className="channel-num">{channel.guideNumber}</span>{' '}
                   <span className="channel-name">{channel.guideName}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {channel.hd && <span className="pill pill-hd">HD</span>}
-                  {current?.isLive && <span className="pill pill-live">LIVE</span>}
-                </div>
+                {current?.isLive && <span className="pill pill-live">Live</span>}
               </div>
 
               <div>
-                <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 2 }}>
                   {current?.title ?? 'Live OTA Broadcast'}
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                   {current
                     ? `${formatTime(current.startTime)} – ${formatTime(current.endTime)}`
                     : channel.network}
@@ -279,15 +196,8 @@ export function HomePage({
               </div>
 
               {next && (
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: 'var(--text-muted)',
-                    borderTop: '1px solid var(--tivo-border)',
-                    paddingTop: 8,
-                  }}
-                >
-                  Next ({formatTime(next.startTime)}): {next.title}
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  Next: {next.title}
                 </div>
               )}
             </button>
@@ -295,35 +205,26 @@ export function HomePage({
         </div>
       </section>
 
-      {/* To Do List Preview */}
+      {/* To Do Queue */}
       {toDoQueue.length > 0 && (
         <section>
-          <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>To Do List — Up Next</h2>
+          <h2 className="section-heading">Up Next on To Do List</h2>
           <div className="card-grid">
             {toDoQueue.map((rec) => (
               <div
                 key={rec.id}
                 className="card"
-                style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+                style={{ display: 'flex', flexDirection: 'column', gap: 5, padding: 15 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className="pill pill-hd">CH {rec.channelNumber}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    Ch {rec.channelNumber} · {formatTime(rec.scheduledStart)}
+                  </span>
                   <span className={rec.status === 'conflict' ? 'pill pill-ad' : 'tivo-rec-badge'}>
-                    {rec.status === 'conflict' ? (
-                      <>
-                        <CircleDot size={11} /> CONFLICT
-                      </>
-                    ) : rec.seriesPassId ? (
-                      'RR'
-                    ) : (
-                      'R'
-                    )}
+                    {rec.status === 'conflict' ? 'Conflict' : rec.seriesPassId ? 'RR' : 'R'}
                   </span>
                 </div>
-                <div style={{ fontWeight: 800, fontSize: 16 }}>{rec.title}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  {formatTime(rec.scheduledStart)} – {formatTime(rec.scheduledEnd)}
-                </div>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{rec.title}</div>
               </div>
             ))}
           </div>
