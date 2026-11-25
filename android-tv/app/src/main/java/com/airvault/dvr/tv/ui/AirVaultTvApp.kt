@@ -3,6 +3,7 @@ package com.airvault.dvr.tv.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,13 +14,24 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.LiveTv
+import androidx.compose.material.icons.rounded.Radio
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -46,13 +58,13 @@ private val TivoSkipGreen = Color(0xFF34D399)
 private val TivoRecRed = Color(0xFFEF4444)
 private val TivoMuted = Color(0xFF98A6BD)
 
-private enum class TvSection(val label: String) {
-    HOME("Home"),
-    MY_SHOWS("My Shows"),
-    GUIDE("Guide"),
-    APPS("Streaming Apps"),
-    TODO("To Do & OnePass"),
-    SERVER("Settings"),
+private enum class TvSection(val label: String, val icon: ImageVector) {
+    HOME("Home", Icons.Rounded.Home),
+    MY_SHOWS("My Shows", Icons.Rounded.VideoLibrary),
+    GUIDE("Guide", Icons.Rounded.LiveTv),
+    APPS("Streaming Apps", Icons.Rounded.Apps),
+    TODO("To Do & OnePass", Icons.Rounded.Schedule),
+    SERVER("Settings", Icons.Rounded.Settings),
 }
 
 @Composable
@@ -173,57 +185,100 @@ fun AirVaultTvApp() {
             return@MaterialTheme
         }
 
+        var railFocused by remember { mutableStateOf(false) }
+        val railWidth by animateDpAsState(if (railFocused) 216.dp else 68.dp, label = "railWidth")
+
         Row(
             modifier = Modifier
                 .fillMaxSize()
                 .background(TivoBgDeep),
         ) {
-            // Restrained Left Navigation Rail
+            // Collapsible Icon-Only Left Navigation Rail (expands smoothly when D-pad focused)
             Column(
                 modifier = Modifier
-                    .width(216.dp)
+                    .width(railWidth)
                     .fillMaxHeight()
                     .background(TivoBgRail)
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                    .onFocusChanged { railFocused = it.hasFocus }
+                    .padding(horizontal = 10.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = if (railFocused) Alignment.Start else Alignment.CenterHorizontally,
             ) {
-                Text("AirVault", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Text(
-                    serverName,
-                    fontSize = 12.sp,
-                    color = TivoMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(14.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                ) {
+                    Icon(Icons.Rounded.Radio, contentDescription = "AirVault", tint = TivoAccent)
+                    if (railFocused) {
+                        Column {
+                            Text("AirVault", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(
+                                serverName,
+                                fontSize = 11.sp,
+                                color = TivoMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
 
                 TvSection.entries.forEach { section ->
                     val isSelected = section == activeSection
                     Button(
                         onClick = { activeSection = section },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        contentPadding = PaddingValues(horizontal = if (railFocused) 12.dp else 0.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isSelected) Color(0x2660A5FA) else Color.Transparent,
                             contentColor = if (isSelected) Color.White else TivoMuted,
                         ),
                     ) {
-                        Text(
-                            section.label,
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                        )
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = if (railFocused) Arrangement.Start else Arrangement.Center,
+                        ) {
+                            Icon(section.icon, contentDescription = section.label, modifier = Modifier.size(20.dp))
+                            if (railFocused) {
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    section.label,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
                     }
                 }
 
                 Spacer(Modifier.weight(1f))
                 Button(
                     onClick = { scope.launch { refreshData(api) } },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp),
+                    contentPadding = PaddingValues(horizontal = if (railFocused) 12.dp else 0.dp),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = TivoCard),
                 ) {
-                    Text("Refresh")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = if (railFocused) Arrangement.Start else Arrangement.Center,
+                    ) {
+                        Icon(Icons.Rounded.Refresh, contentDescription = "Refresh", modifier = Modifier.size(18.dp))
+                        if (railFocused) {
+                            Spacer(Modifier.width(10.dp))
+                            Text("Refresh")
+                        }
+                    }
                 }
             }
 

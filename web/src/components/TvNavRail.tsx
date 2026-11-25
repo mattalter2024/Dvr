@@ -34,6 +34,7 @@ export function TvNavRail({
   tuners,
   serverName,
 }: TvNavRailProps) {
+  const [expanded, setExpanded] = useState(false);
   const [clock, setClock] = useState(() =>
     new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
   );
@@ -64,66 +65,96 @@ export function TvNavRail({
   ];
 
   return (
-    <aside className="tv-rail" aria-label="Main Navigation">
-      <div className="brand-lockup">
-        <div className="tivo-mascot">
-          <Radio size={16} color="var(--accent)" />
+    <div className="tv-rail-spacer">
+      <aside
+        className={`tv-rail ${expanded ? 'expanded' : ''}`}
+        aria-label="Main Navigation"
+        onMouseEnter={() => setExpanded(true)}
+        onMouseLeave={() => setExpanded(false)}
+        onFocus={() => setExpanded(true)}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            setExpanded(false);
+          }
+        }}
+      >
+        <div className="brand-lockup">
+          <div className="tivo-mascot" title="AirVault DVR">
+            <Radio size={17} color="var(--accent)" />
+          </div>
+          <div className="brand-meta">
+            <div className="brand-title">AirVault</div>
+            <div className="brand-sub">{clock}</div>
+          </div>
         </div>
-        <div>
-          <div className="brand-title">AirVault</div>
-          <div className="brand-sub">{clock}</div>
-        </div>
-      </div>
 
-      {items.map((item) => {
-        const Icon = item.icon;
-        return (
-          <button
-            key={item.id}
-            className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-            onClick={() => {
-              playTivoNavBloop();
-              onSelect(item.id);
-            }}
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.id}
+              className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+              title={item.label}
+              aria-label={item.label}
+              onClick={() => {
+                playTivoNavBloop();
+                onSelect(item.id);
+                setExpanded(false);
+              }}
+            >
+              <Icon size={18} />
+              <span className="nav-label">{item.label}</span>
+              {item.badge !== undefined && (
+                <>
+                  <span className="nav-rec-dot" />
+                  <span className="nav-badge">{item.badge}</span>
+                </>
+              )}
+            </button>
+          );
+        })}
+
+        <div className="rail-footer">
+          <div
+            className="rail-footer-collapsed"
+            title={`Tuners: ${usedSlots}/${totalSlots} active`}
           >
-            <Icon size={17} />
-            <span>{item.label}</span>
-            {item.badge !== undefined && <span className="nav-badge">{item.badge}</span>}
-          </button>
-        );
-      })}
-
-      <div className="rail-footer">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{serverName}</span>
-          <button
-            onClick={() => {
-              const next = !soundsOn;
-              setSoundsOn(next);
-              setTivoSoundsEnabled(next);
-              if (next) playTivoNavBloop();
-            }}
-            title={soundsOn ? 'Mute UI sounds' : 'Enable subtle TiVo UI sounds'}
-            style={{ padding: 5, borderRadius: 6 }}
-          >
-            {soundsOn ? (
-              <Volume2 size={14} color="var(--accent)" />
-            ) : (
-              <VolumeX size={14} color="var(--text-muted)" />
-            )}
-          </button>
-        </div>
-
-        <div className="tuner-pill">
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
             <span className={`dot ${activeRecordingsCount > 0 ? 'rec' : 'live'}`} />
-            Tuners
-          </span>
-          <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-            {usedSlots}/{totalSlots}
-          </span>
+          </div>
+
+          <div className="rail-footer-expanded">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{serverName}</span>
+              <button
+                onClick={() => {
+                  const next = !soundsOn;
+                  setSoundsOn(next);
+                  setTivoSoundsEnabled(next);
+                  if (next) playTivoNavBloop();
+                }}
+                title={soundsOn ? 'Mute UI sounds' : 'Enable subtle UI sounds'}
+                style={{ padding: 5, borderRadius: 6 }}
+              >
+                {soundsOn ? (
+                  <Volume2 size={14} color="var(--accent)" />
+                ) : (
+                  <VolumeX size={14} color="var(--text-muted)" />
+                )}
+              </button>
+            </div>
+
+            <div className="tuner-pill">
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                <span className={`dot ${activeRecordingsCount > 0 ? 'rec' : 'live'}`} />
+                Tuners
+              </span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                {usedSlots}/{totalSlots}
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </div>
   );
 }
