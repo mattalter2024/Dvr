@@ -3,7 +3,6 @@ package com.airvault.dvr.tv.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,7 +27,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -185,43 +183,26 @@ fun AirVaultTvApp() {
             return@MaterialTheme
         }
 
-        var railFocused by remember { mutableStateOf(false) }
-        val railWidth by animateDpAsState(if (railFocused) 216.dp else 68.dp, label = "railWidth")
-
         Row(
             modifier = Modifier
                 .fillMaxSize()
                 .background(TivoBgDeep),
         ) {
-            // Collapsible Icon-Only Left Navigation Rail (expands smoothly when D-pad focused)
+            // Permanent Static Icon-Only Left Navigation Rail (no flyout expansion)
             Column(
                 modifier = Modifier
-                    .width(railWidth)
+                    .width(68.dp)
                     .fillMaxHeight()
                     .background(TivoBgRail)
-                    .onFocusChanged { railFocused = it.hasFocus }
                     .padding(horizontal = 10.dp, vertical = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = if (railFocused) Alignment.Start else Alignment.CenterHorizontally,
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                Box(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(Icons.Rounded.Radio, contentDescription = "AirVault", tint = TivoAccent)
-                    if (railFocused) {
-                        Column {
-                            Text("AirVault", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                            Text(
-                                serverName,
-                                fontSize = 11.sp,
-                                color = TivoMuted,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
                 }
                 Spacer(Modifier.height(10.dp))
 
@@ -229,56 +210,27 @@ fun AirVaultTvApp() {
                     val isSelected = section == activeSection
                     Button(
                         onClick = { activeSection = section },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp),
-                        contentPadding = PaddingValues(horizontal = if (railFocused) 12.dp else 0.dp),
+                        modifier = Modifier.size(44.dp),
+                        contentPadding = PaddingValues(0.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isSelected) Color(0x2660A5FA) else Color.Transparent,
                             contentColor = if (isSelected) Color.White else TivoMuted,
                         ),
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = if (railFocused) Arrangement.Start else Arrangement.Center,
-                        ) {
-                            Icon(section.icon, contentDescription = section.label, modifier = Modifier.size(20.dp))
-                            if (railFocused) {
-                                Spacer(Modifier.width(12.dp))
-                                Text(
-                                    section.label,
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
+                        Icon(section.icon, contentDescription = section.label, modifier = Modifier.size(20.dp))
                     }
                 }
 
                 Spacer(Modifier.weight(1f))
                 Button(
                     onClick = { scope.launch { refreshData(api) } },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(42.dp),
-                    contentPadding = PaddingValues(horizontal = if (railFocused) 12.dp else 0.dp),
+                    modifier = Modifier.size(42.dp),
+                    contentPadding = PaddingValues(0.dp),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = TivoCard),
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = if (railFocused) Arrangement.Start else Arrangement.Center,
-                    ) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = "Refresh", modifier = Modifier.size(18.dp))
-                        if (railFocused) {
-                            Spacer(Modifier.width(10.dp))
-                            Text("Refresh")
-                        }
-                    }
+                    Icon(Icons.Rounded.Refresh, contentDescription = "Refresh", modifier = Modifier.size(18.dp))
                 }
             }
 

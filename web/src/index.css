@@ -27,8 +27,7 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 14px;
-  --rail-collapsed: 64px;
-  --rail-expanded: 224px;
+  --rail-width: 64px;
 }
 
 * {
@@ -82,112 +81,48 @@ select {
   width: 100vw;
 }
 
-/* ==================== COLLAPSIBLE ICON-ONLY LEFT NAVIGATION RAIL ==================== */
-.tv-rail-spacer {
-  width: var(--rail-collapsed);
-  flex-shrink: 0;
-  position: relative;
-  z-index: 30;
-}
-
+/* ==================== STATIC ICON-ONLY LEFT NAVIGATION RAIL ==================== */
 .tv-rail {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: var(--rail-collapsed);
+  width: var(--rail-width);
+  flex-shrink: 0;
   background: var(--bg-rail);
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
+  align-items: center;
   padding: 16px 10px;
   gap: 6px;
-  overflow: hidden;
-  transition: width 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.18s ease, background 0.18s ease;
-  z-index: 35;
-}
-
-.tv-rail.expanded {
-  width: var(--rail-expanded);
-  background: rgba(14, 20, 34, 0.97);
-  backdrop-filter: blur(12px);
-  border-right-color: var(--border-strong);
-  box-shadow: 12px 0 36px rgba(0, 0, 0, 0.55);
 }
 
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 4px 5px 16px;
+  justify-content: center;
+  padding-bottom: 14px;
   margin-bottom: 4px;
+  width: 100%;
   border-bottom: 1px solid var(--border-subtle);
-  white-space: nowrap;
 }
 
 .tivo-mascot {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 9px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   display: grid;
   place-items: center;
-  flex-shrink: 0;
-}
-
-.brand-meta {
-  opacity: 0;
-  transition: opacity 0.14s ease;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.tv-rail.expanded .brand-meta {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.brand-title {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.brand-sub {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 500;
 }
 
 .nav-item {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 13px;
+  width: 42px;
   height: 42px;
-  padding: 0 12px;
+  display: grid;
+  place-items: center;
   border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 500;
   color: var(--text-secondary);
   transition: background 0.14s, color 0.14s;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.nav-item svg {
-  flex-shrink: 0;
-}
-
-.nav-label {
-  opacity: 0;
-  transition: opacity 0.14s ease;
-  overflow: hidden;
-}
-
-.tv-rail.expanded .nav-label {
-  opacity: 1;
 }
 
 .nav-item:hover {
@@ -198,80 +133,33 @@ select {
 .nav-item.active {
   background: var(--accent-soft);
   color: var(--text-primary);
-  font-weight: 600;
-}
-
-.nav-badge {
-  margin-left: auto;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 7px;
-  border-radius: 6px;
-  background: var(--rec-soft);
-  color: #fca5a5;
-  opacity: 0;
-  transition: opacity 0.14s ease;
-}
-
-.tv-rail.expanded .nav-badge {
-  opacity: 1;
 }
 
 .nav-rec-dot {
   position: absolute;
-  top: 8px;
-  left: 28px;
+  top: 7px;
+  right: 7px;
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--rec-red);
 }
 
-.tv-rail.expanded .nav-rec-dot {
-  display: none;
-}
-
 .rail-footer {
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: 10px;
+  width: 100%;
   border-top: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.rail-footer-expanded {
-  display: none;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.tv-rail.expanded .rail-footer-expanded {
-  display: flex;
-}
-
-.rail-footer-collapsed {
-  display: flex;
-  justify-content: center;
-  padding: 6px 0;
-}
-
-.tv-rail.expanded .rail-footer-collapsed {
-  display: none;
-}
-
-.tuner-pill {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 7px 10px;
-  color: var(--text-secondary);
+  gap: 8px;
+}
+
+.rail-tuner-dot {
+  display: grid;
+  place-items: center;
+  padding: 4px;
 }
 
 .dot {
