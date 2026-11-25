@@ -1,0 +1,18 @@
+{
+  "name": "airvault-dvr",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Whole-House OTA DVR System with HDHomeRun Capture, XMLTV EPG, Commercial Skipping, 10-Foot Smart TV Web UI, and Native Android TV / Google TV / Fire TV App",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "dev:server": "npm --workspace=server run dev",
+    "dev:web": "npm --workspace=web run dev",
+    "build": "npm --workspace=web run build && npm --workspace=server run build",
+    "start": "npm --workspace=server run start",
+    "test": "npm --workspace=server run test"
+  }
+}

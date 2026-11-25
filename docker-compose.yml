@@ -1,0 +1,23 @@
+services:
+  airvault-dvr:
+    build: .
+    container_name: airvault-dvr
+    restart: unless-stopped
+    # On Linux servers/NAS, uncomment `network_mode: host` (and remove `ports:`)
+    # so UDP broadcasts for HDHomeRun discovery (65001) and Android TV discovery (41234)
+    # work across your entire home LAN automatically.
+    # network_mode: host
+    ports:
+      - "8096:8096"
+      - "41234:41234/udp"
+    environment:
+      PORT: 8096
+      SERVER_NAME: "AirVault Home DVR"
+      ENABLE_VIRTUAL_TUNER: "true"
+      VIRTUAL_TUNER_COUNT: "2"
+      AUTO_COMMERCIAL_SCAN: "true"
+      # Optional: paste your XMLTV URL (Schedules Direct / Zap2it / tv_grab)
+      XMLTV_URL: ""
+    volumes:
+      - ./data:/data
+      - ./recordings:/recordings
