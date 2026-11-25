@@ -4,6 +4,7 @@ import android.view.KeyEvent
 import androidx.annotation.OptIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -29,6 +30,13 @@ import androidx.media3.ui.PlayerView
 import com.airvault.dvr.tv.data.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private val TivoCapsuleTop = Color(0xEE0B2252)
+private val TivoCapsuleBottom = Color(0xF505102B)
+private val TivoSkipGreen = Color(0xFF22C55E)
+private val TivoGold = Color(0xFFFACC15)
+private val TivoBlueBtn = Color(0xFF1D4ED8)
+private val TivoBorder = Color(0x7793C5FD)
 
 sealed interface TvPlaybackRequest {
     data class Live(val channel: TvChannel) : TvPlaybackRequest
@@ -64,7 +72,6 @@ fun PlayerScreen(
         }
     }
 
-    // Load MediaItem (Live HLS / Direct MPEG-TS or Recording HTTP Range MP4 + Commercials)
     LaunchedEffect(request) {
         lastSkippedSegId = null
         skipToast = null
@@ -74,7 +81,6 @@ fun PlayerScreen(
                     commercials = emptyList()
                     val session = api.startLive(request.channel.id)
                     liveSession = session
-                    // Native ExoPlayer can play direct HDHomeRun MPEG-TS OR server HLS!
                     val mediaUrl = session.directStreamUrl ?: session.playlistUrl
                     exoPlayer.setMediaItem(MediaItem.fromUri(mediaUrl))
                     exoPlayer.prepare()
@@ -103,7 +109,6 @@ fun PlayerScreen(
         }
     }
 
-    // Live TV heartbeat + clean release of tuner & ExoPlayer on exit
     DisposableEffect(liveSession?.id) {
         val sessId = liveSession?.id
         val job = if (sessId != null) {
@@ -133,7 +138,7 @@ fun PlayerScreen(
         }
     }
 
-    // 400ms playback monitor: Automatic Commercial Skipping + Whole-House Resume Sync!
+    // 400ms playback monitor: Automatic TiVo SkipMode commercial skipping + Whole-House Resume Sync
     LaunchedEffect(request, commercials, autoSkip) {
         var tick = 0
         while (true) {
@@ -151,7 +156,7 @@ fun PlayerScreen(
                     exoPlayer.seekTo((hit.endSec * 1000.0).toLong())
                     skipToast = skippedSec to returnMs
                     scope.launch {
-                        delay(6_000)
+                        delay(6_500)
                         if (skipToast?.second == returnMs) skipToast = null
                     }
                 }
@@ -165,10 +170,9 @@ fun PlayerScreen(
         }
     }
 
-    // Auto-hide HUD after 5 seconds of inactivity
     LaunchedEffect(hudVisible) {
         if (hudVisible) {
-            delay(5000)
+            delay(5500)
             hudVisible = false
         }
     }
@@ -196,20 +200,21 @@ fun PlayerScreen(
                         true
                     }
 
+                    // Iconic TiVo 30-Second Advance on Right / FF
                     KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
-                        exoPlayer.seekTo((exoPlayer.currentPosition + 15_000L).coerceAtLeast(0L))
+                        exoPlayer.seekTo((exoPlayer.currentPosition + 30_000L).coerceAtLeast(0L))
                         true
                     }
 
+                    // Iconic TiVo 8-Second Instant Replay (or Undo SkipMode if toast active) on Left / Rewind
                     KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_MEDIA_REWIND -> {
                         val toast = skipToast
                         if (toast != null) {
-                            // Pressing LEFT immediately after auto-skip undoes the skip
                             autoSkip = false
                             exoPlayer.seekTo(toast.second)
                             skipToast = null
                         } else {
-                            exoPlayer.seekTo((exoPlayer.currentPosition - 10_000L).coerceAtLeast(0L))
+                            exoPlayer.seekTo((exoPlayer.currentPosition - 8_000L).coerceAtLeast(0L))
                         }
                         true
                     }
@@ -238,7 +243,7 @@ fun PlayerScreen(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = exoPlayer
-                    useController = false // Custom 10-foot DVR OSD with amber commercial markers
+                    useController = false // Custom TiVo-style TrickPlay & SkipMode OSD
                 }
             },
             modifier = Modifier.fillMaxSize(),
@@ -246,31 +251,32 @@ fun PlayerScreen(
 
         if (statusText.isNotBlank()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(statusText, color = Color(0xFF94A3B8), fontSize = 18.sp)
+                Text(statusText, color = Color(0xFFB6C9E8), fontSize = 18.sp)
             }
         }
 
-        // Auto-Skip Commercial Undo Toast
+        // TiVo SkipMode™ Toast
         skipToast?.let { (skippedSec, undoMs) ->
             Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 84.dp, end = 32.dp)
-                    .background(Color(0xEE0F172A), RoundedCornerShape(14.dp))
+                    .background(Color(0xEE062E18), RoundedCornerShape(16.dp))
+                    .border(2.dp, TivoSkipGreen, RoundedCornerShape(16.dp))
                     .padding(horizontal = 20.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Column {
                     Text(
-                        "Skipped ${formatClock(skippedSec * 1000L)} commercial",
-                        color = Color(0xFFFCD34D),
-                        fontWeight = FontWeight.Bold,
+                        "SkipMode™ jumped ${formatClock(skippedSec * 1000L)} of commercials",
+                        color = TivoSkipGreen,
+                        fontWeight = FontWeight.ExtraBold,
                         fontSize = 16.sp,
                     )
                     Text(
-                        "Press LEFT on remote to undo",
-                        color = Color(0xFF94A3B8),
+                        "Press LEFT (8s Instant Replay) to undo",
+                        color = Color(0xFFD1FAE5),
                         fontSize = 13.sp,
                     )
                 }
@@ -282,18 +288,18 @@ fun PlayerScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
                 ) {
-                    Text("Undo", color = Color.White)
+                    Text("Undo", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
         if (hudVisible) {
-            // Top Bar
+            // Top TiVo Broadcast Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.TopCenter)
-                    .background(Brush.verticalGradient(listOf(Color(0xDD000000), Color.Transparent)))
+                    .background(Brush.verticalGradient(listOf(Color(0xE604102B), Color.Transparent)))
                     .padding(horizontal = 32.dp, vertical = 22.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
@@ -301,13 +307,13 @@ fun PlayerScreen(
                 Column {
                     val heading = when (request) {
                         is TvPlaybackRequest.Live ->
-                            "LIVE  •  ${request.channel.guideNumber} ${request.channel.guideName}"
+                            "LIVE TV  •  ${request.channel.guideNumber} ${request.channel.guideName}"
                         is TvPlaybackRequest.Recording ->
-                            "DVR  •  ${request.recording.title}"
+                            "SKIPMODE  •  ${request.recording.title}"
                     }
                     Text(heading, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
                     if (request is TvPlaybackRequest.Recording && request.recording.subtitle != null) {
-                        Text(request.recording.subtitle, color = Color(0xFF94A3B8), fontSize = 14.sp)
+                        Text(request.recording.subtitle, color = Color(0xFFB6C9E8), fontSize = 14.sp)
                     }
                 }
 
@@ -316,87 +322,104 @@ fun PlayerScreen(
                         Button(
                             onClick = { autoSkip = !autoSkip },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (autoSkip) Color(0xFFD97706) else Color(0xFF1E293B),
+                                containerColor = if (autoSkip) TivoSkipGreen else Color(0xFF153474),
+                                contentColor = if (autoSkip) Color(0xFF032212) else Color.White,
                             ),
                         ) {
-                            Text("Auto-Skip Ads: ${if (autoSkip) "ON" else "OFF"}")
+                            Text("Auto-SkipMode: ${if (autoSkip) "ON" else "OFF"}", fontWeight = FontWeight.Bold)
                         }
                     }
                     Button(
                         onClick = onClose,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF153474)),
                     ) {
                         Text("Back")
                     }
                 }
             }
 
-            // Bottom Scrub Bar with Amber Commercial Break Markers
+            // Iconic TiVo Rounded TrickPlay Capsule Dock
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xEE000000))))
-                    .padding(horizontal = 32.dp, vertical = 24.dp),
+                    .padding(horizontal = 32.dp, vertical = 24.dp)
+                    .background(
+                        Brush.verticalGradient(listOf(TivoCapsuleTop, TivoCapsuleBottom)),
+                        RoundedCornerShape(22.dp),
+                    )
+                    .border(2.dp, TivoBorder, RoundedCornerShape(22.dp))
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (request is TvPlaybackRequest.Recording && durationMs > 0L) {
-                    Canvas(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(10.dp),
-                    ) {
-                        drawRect(color = Color(0x44FFFFFF), size = size)
-                        // Paint detected commercial segments in bright amber
-                        for (seg in commercials) {
-                            val leftX = ((seg.startSec * 1000.0) / durationMs).toFloat().coerceIn(0f, 1f) * size.width
-                            val rightX = ((seg.endSec * 1000.0) / durationMs).toFloat().coerceIn(0f, 1f) * size.width
-                            drawRect(
-                                color = Color(0xFFF59E0B),
-                                topLeft = Offset(leftX, 0f),
-                                size = Size((rightX - leftX).coerceAtLeast(4f), size.height),
-                            )
-                        }
-                        val progW = (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) * size.width
-                        drawRect(color = Color(0xFF38BDF8), size = Size(progW, size.height))
-                    }
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        Text(formatClock(positionMs), color = Color.White, fontSize = 13.sp)
-                        Text(
-                            if (commercials.isNotEmpty()) "${commercials.size} ad breaks marked in amber"
-                            else "No ad breaks detected",
-                            color = Color(0xFFFCD34D),
-                            fontSize = 13.sp,
-                        )
-                        Text(formatClock(durationMs), color = Color.White, fontSize = 13.sp)
+                        Text(formatClock(positionMs), color = Color(0xFF86EFAC), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+
+                        Canvas(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(14.dp),
+                        ) {
+                            drawRect(color = Color(0xDD020A1C), size = size)
+                            // TiVo 20% tick marks
+                            for (tickPct in listOf(0.2f, 0.4f, 0.6f, 0.8f)) {
+                                drawLine(
+                                    color = Color(0x44FFFFFF),
+                                    start = Offset(size.width * tickPct, 0f),
+                                    end = Offset(size.width * tickPct, size.height),
+                                    strokeWidth = 2f,
+                                )
+                            }
+                            // Gold commercial break segments
+                            for (seg in commercials) {
+                                val leftX = ((seg.startSec * 1000.0) / durationMs).toFloat().coerceIn(0f, 1f) * size.width
+                                val rightX = ((seg.endSec * 1000.0) / durationMs).toFloat().coerceIn(0f, 1f) * size.width
+                                drawRect(
+                                    color = TivoGold,
+                                    topLeft = Offset(leftX, 0f),
+                                    size = Size((rightX - leftX).coerceAtLeast(5f), size.height),
+                                )
+                            }
+                            // TiVo TrickPlay green progress bar
+                            val progW = (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) * size.width
+                            drawRect(color = TivoSkipGreen, size = Size(progW, size.height))
+                        }
+
+                        Text(formatClock(durationMs), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (request is TvPlaybackRequest.Recording) {
+                        Button(
+                            onClick = { exoPlayer.seekTo((exoPlayer.currentPosition - 8_000L).coerceAtLeast(0L)) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF153474)),
+                        ) { Text("↺ 8s Replay") }
+                    }
                     Button(
                         onClick = { if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0EA5E9)),
+                        colors = ButtonDefaults.buttonColors(containerColor = TivoBlueBtn),
                     ) {
-                        Text(if (isPlaying) "Pause" else "Play")
+                        Text(if (isPlaying) "Pause" else "Play", fontWeight = FontWeight.Bold)
                     }
                     if (request is TvPlaybackRequest.Recording) {
                         Button(
-                            onClick = { exoPlayer.seekTo((exoPlayer.currentPosition - 15_000L).coerceAtLeast(0L)) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
-                        ) { Text("-15s") }
-                        Button(
                             onClick = { exoPlayer.seekTo(exoPlayer.currentPosition + 30_000L) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
-                        ) { Text("+30s") }
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF153474)),
+                        ) { Text("+30s Advance") }
                         if (activeCommercial != null) {
                             Button(
                                 onClick = { exoPlayer.seekTo((activeCommercial.endSec * 1000.0).toLong()) },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
-                            ) { Text("Skip Commercial") }
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = TivoSkipGreen,
+                                    contentColor = Color(0xFF032212),
+                                ),
+                            ) { Text("SKIP COMMERCIAL", fontWeight = FontWeight.ExtraBold) }
                         }
                     }
                 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, CalendarClock, Plus, Repeat, Trash2, XCircle } from 'lucide-react';
 import { api, formatTime, type Recording, type SeriesPass } from '../api/client';
+import { playTivoRecordTone } from '../utils/tivoSounds';
 
 interface SchedulePageProps {
   recordings: Recording[];
@@ -26,13 +27,14 @@ export function SchedulePage({
   const createPass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
+    playTivoRecordTone();
     const res = await api.createSeriesPass({
       title: newTitle.trim(),
       newOnly,
       keepLimit,
     });
     setNewTitle('');
-    onNotify(`Series Pass created for "${res.seriesPass.title}" (${res.scheduledCount} queued)`);
+    onNotify(`OnePass™ created for "${res.seriesPass.title}" (${res.scheduledCount} queued)`);
     onRefresh();
   };
 
@@ -40,22 +42,22 @@ export function SchedulePage({
     <>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Schedule & Series Passes</h1>
+          <h1 className="page-title">To Do List & OnePass™ Manager</h1>
           <p className="page-subtitle">
-            Manage upcoming timers, automatic series recording rules, and tuner conflict alerts
+            Upcoming recording queue, tuner conflict monitor, and automatic OnePass™ series rules
           </p>
         </div>
       </div>
 
-      {/* Upcoming Timer Queue */}
+      {/* TiVo To Do List */}
       <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <CalendarClock size={18} color="var(--accent)" /> Upcoming Recording Queue ({upcoming.length})
+        <h2 style={{ fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <CalendarClock size={18} color="#facc15" /> To Do List ({upcoming.length})
         </h2>
 
         {upcoming.length === 0 ? (
           <div style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-            No upcoming recordings scheduled. Select any show in the TV Guide or add a Series Pass below.
+            Your To Do List is clear. Pick any show in the Live TV Guide or create a OnePass™ below.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -67,18 +69,19 @@ export function SchedulePage({
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   gap: 14,
-                  padding: '12px 16px',
-                  borderRadius: 12,
-                  background: 'var(--bg-elevated)',
+                  padding: '13px 18px',
+                  borderRadius: 14,
+                  background: 'var(--tivo-bg-card)',
                   border:
                     rec.status === 'conflict'
-                      ? '1px solid rgba(245, 158, 11, 0.6)'
-                      : '1px solid var(--border-subtle)',
+                      ? '1px solid rgba(250, 204, 21, 0.75)'
+                      : '1px solid var(--tivo-border)',
                   flexWrap: 'wrap',
                 }}
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span className="tivo-rec-badge">{rec.seriesPassId ? 'RR' : 'R'}</span>
                     <span className="pill pill-hd">
                       {rec.channelNumber} {rec.channelName}
                     </span>
@@ -93,14 +96,14 @@ export function SchedulePage({
                     )}
                     {rec.episodeNum && <span className="pill pill-hd">{rec.episodeNum}</span>}
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{rec.title}</div>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>{rec.title}</div>
                   <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                     {new Date(rec.scheduledStart).toLocaleDateString()} ·{' '}
                     {formatTime(rec.scheduledStart)} – {formatTime(rec.scheduledEnd)} (padding -
                     {rec.paddingStartMin}m / +{rec.paddingEndMin}m)
                   </div>
                   {rec.errorMessage && (
-                    <div style={{ fontSize: 12, color: '#fcd34d', marginTop: 4 }}>
+                    <div style={{ fontSize: 12, color: '#fde047', marginTop: 4 }}>
                       {rec.errorMessage}
                     </div>
                   )}
@@ -122,10 +125,10 @@ export function SchedulePage({
         )}
       </section>
 
-      {/* Series Passes */}
+      {/* TiVo OnePass Manager */}
       <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Repeat size={18} color="var(--accent)" /> Series Passes ({seriesPasses.length})
+        <h2 style={{ fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Repeat size={18} color="#22c55e" /> OnePass™ Manager ({seriesPasses.length})
         </h2>
 
         <form
@@ -141,17 +144,17 @@ export function SchedulePage({
               onChange={(e) => setNewTitle(e.target.value)}
             />
           </div>
-          <div className="field" style={{ width: 150 }}>
+          <div className="field" style={{ width: 155 }}>
             <label>Episodes</label>
             <select
               value={newOnly ? 'new' : 'all'}
               onChange={(e) => setNewOnly(e.target.value === 'new')}
             >
               <option value="new">New Only</option>
-              <option value="all">All Episodes</option>
+              <option value="all">New & Reruns</option>
             </select>
           </div>
-          <div className="field" style={{ width: 140 }}>
+          <div className="field" style={{ width: 150 }}>
             <label>Keep At Most</label>
             <select value={keepLimit} onChange={(e) => setKeepLimit(Number(e.target.value))}>
               <option value={0}>Keep All</option>
@@ -161,7 +164,7 @@ export function SchedulePage({
             </select>
           </div>
           <button type="submit" className="btn btn-primary" style={{ height: 42 }}>
-            <Plus size={16} /> Add Series Pass
+            <Plus size={16} /> Create OnePass™
           </button>
         </form>
 
@@ -174,19 +177,22 @@ export function SchedulePage({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 12,
-                padding: '12px 16px',
-                borderRadius: 12,
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-subtle)',
+                padding: '13px 18px',
+                borderRadius: 14,
+                background: 'var(--tivo-bg-card)',
+                border: '1px solid var(--tivo-border)',
                 flexWrap: 'wrap',
               }}
             >
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>{pass.title}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  {pass.newOnly ? 'New episodes only' : 'All episodes'} ·{' '}
-                  {pass.keepLimit > 0 ? `Keep latest ${pass.keepLimit}` : 'Keep all'} · Padding -
-                  {pass.paddingStartMin}m / +{pass.paddingEndMin}m
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span className="tivo-rec-badge">RR</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>{pass.title}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                    {pass.newOnly ? 'New episodes only' : 'New & reruns'} ·{' '}
+                    {pass.keepLimit > 0 ? `Keep latest ${pass.keepLimit}` : 'Keep all'} · Padding -
+                    {pass.paddingStartMin}m / +{pass.paddingEndMin}m
+                  </div>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -203,7 +209,7 @@ export function SchedulePage({
                   className="btn btn-danger"
                   onClick={async () => {
                     await api.deleteSeriesPass(pass.id);
-                    onNotify(`Removed Series Pass for "${pass.title}"`);
+                    onNotify(`Removed OnePass™ for "${pass.title}"`);
                     onRefresh();
                   }}
                 >

@@ -10,10 +10,10 @@ import {
   Play,
   Rewind,
   RotateCcw,
-  Scissors,
   SkipForward,
   Volume2,
   VolumeX,
+  Zap,
 } from 'lucide-react';
 import {
   api,
@@ -23,6 +23,12 @@ import {
   type LiveSession,
   type Recording,
 } from '../api/client';
+import {
+  playTivoBackBoop,
+  playTivoNavBloop,
+  playTivoRecordTone,
+  playTivoSkipChime,
+} from '../utils/tivoSounds';
 
 export type PlayerTarget =
   | { kind: 'live'; channel: Channel }
@@ -53,6 +59,7 @@ export function VideoPlayer({
   const [commercials, setCommercials] = useState<CommercialSegment[]>([]);
   const [autoSkip, setAutoSkip] = useState(autoSkipDefault);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [trickSpeed, setTrickSpeed] = useState<number>(1); // TiVo 3-speed TrickPlay (-3..3, 1 = normal)
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(
@@ -71,7 +78,7 @@ export function VideoPlayer({
   const bumpHud = () => {
     setHudVisible(true);
     if (hudTimerRef.current) window.clearTimeout(hudTimerRef.current);
-    hudTimerRef.current = window.setTimeout(() => setHudVisible(false), 5000);
+    hudTimerRef.current = window.setTimeout(() => setHudVisible(false), 5500);
   };
 
   // Start Live TV HLS session OR load Recording + Commercial Segments
@@ -84,6 +91,7 @@ export function VideoPlayer({
     );
     setSimulatedMode(false);
     setSkipToast(null);
+    setTrickSpeed(1);
     lastSkipSegmentIdRef.current = null;
 
     if (target.kind === 'live') {
@@ -121,7 +129,7 @@ export function VideoPlayer({
           if (!recording.filePath) {
             setSimulatedMode(true);
             setStatusMessage(
-              'Interactive DVR Preview (install FFmpeg or run Docker to record real .mp4 video)',
+              'TiVo SkipMode™ Interactive Preview (install FFmpeg or run Docker to record real .mp4 video)',
             );
           } else {
             setStatusMessage('');
@@ -207,20 +215,43 @@ export function VideoPlayer({
     };
   }, [target, session, simulatedMode]);
 
-  // Simulated clock ticker when no FFmpeg binary is present so commercial skip can still be demoed live
+  // TrickPlay playback speed sync (TiVo 1x / 2x / 3x fast-forward & rewind stepping)
   useEffect(() => {
-    if (!simulatedMode || !isPlaying) return;
-    const timer = window.setInterval(() => {
-      setCurrentTime((prev) => {
-        const next = prev + 0.5;
-        if (target.kind === 'recording' && duration > 0 && next >= duration) {
-          return 0;
-        }
-        return next;
-      });
-    }, 500);
-    return () => window.clearInterval(timer);
-  }, [simulatedMode, isPlaying, target.kind, duration]);
+    const video = videoRef.current;
+    if (!simulatedMode && video) {
+      if (trickSpeed >= 1) {
+        video.playbackRate = trickSpeed === 1 ? 1 : trickSpeed === 2 ? 2 : 4;
+      } else {
+        video.playbackRate = 1;
+      }
+    }
+
+    if (trickSpeed < 0) {
+      const stepPerTick = trickSpeed === -1 ? 1.5 : trickSpeed === -2 ? 4 : 8;
+      const timer = window.setInterval(() => {
+        setCurrentTime((prev) => {
+          const next = Math.max(0, prev - stepPerTick);
+          if (!simulatedMode && video) video.currentTime = next;
+          return next;
+        });
+      }, 250);
+      return () => window.clearInterval(timer);
+    }
+
+    if (simulatedMode && isPlaying) {
+      const mult = trickSpeed === 1 ? 0.5 : trickSpeed === 2 ? 1.5 : 3.5;
+      const timer = window.setInterval(() => {
+        setCurrentTime((prev) => {
+          const next = prev + mult;
+          if (target.kind === 'recording' && duration > 0 && next >= duration) {
+            return 0;
+          }
+          return next;
+        });
+      }, 500);
+      return () => window.clearInterval(timer);
+    }
+  }, [simulatedMode, isPlaying, trickSpeed, target.kind, duration]);
 
   // Active commercial segment at current playback position
   const activeCommercial = useMemo(() => {
@@ -231,6 +262,12 @@ export function VideoPlayer({
     );
   }, [commercials, currentTime, target.kind]);
 
+  // Next upcoming commercial break (for manual SkipMode button)
+  const nextOrActiveCommercial = useMemo(() => {
+    if (activeCommercial) return activeCommercial;
+    return commercials.find((seg) => seg.startSec > currentTime) ?? null;
+  }, [activeCommercial, commercials, currentTime]);
+
   const seekTo = (sec: number) => {
     const clamped = Math.max(0, duration > 0 ? Math.min(duration, sec) : sec);
     if (!simulatedMode && videoRef.current) {
@@ -239,23 +276,24 @@ export function VideoPlayer({
     setCurrentTime(clamped);
   };
 
-  // Automatic Commercial Skipping engine!
+  const triggerCommercialSkip = (seg: CommercialSegment) => {
+    const returnToSec = currentTime;
+    const skippedSeconds = Math.max(1, Math.round(seg.endSec - seg.startSec));
+    lastSkipSegmentIdRef.current = seg.id;
+    setTrickSpeed(1);
+    seekTo(seg.endSec);
+    playTivoSkipChime();
+    setSkipToast({ segment: seg, returnToSec, skippedSeconds });
+    window.setTimeout(() => {
+      setSkipToast((prev) => (prev?.segment.id === seg.id ? null : prev));
+    }, 6500);
+  };
+
+  // Automatic TiVo SkipMode commercial jumping!
   useEffect(() => {
     if (target.kind !== 'recording' || !autoSkip || !activeCommercial) return;
     if (lastSkipSegmentIdRef.current === activeCommercial.id) return;
-
-    const returnToSec = currentTime;
-    const skippedSeconds = Math.max(1, Math.round(activeCommercial.endSec - activeCommercial.startSec));
-    lastSkipSegmentIdRef.current = activeCommercial.id;
-    seekTo(activeCommercial.endSec);
-
-    setSkipToast({
-      segment: activeCommercial,
-      returnToSec,
-      skippedSeconds,
-    });
-    const t = window.setTimeout(() => setSkipToast(null), 6500);
-    return () => window.clearTimeout(t);
+    triggerCommercialSkip(activeCommercial);
   }, [activeCommercial, autoSkip, target.kind]);
 
   // Whole-house playback resume progress sync every 5 seconds
@@ -276,6 +314,8 @@ export function VideoPlayer({
 
   const togglePlay = () => {
     bumpHud();
+    setTrickSpeed(1);
+    playTivoNavBloop();
     if (simulatedMode) {
       setIsPlaying((p) => !p);
       return;
@@ -291,39 +331,51 @@ export function VideoPlayer({
     }
   };
 
+  const instantReplay8s = () => {
+    bumpHud();
+    setTrickSpeed(1);
+    playTivoNavBloop();
+    if (skipToast) {
+      setAutoSkip(false);
+      seekTo(skipToast.returnToSec);
+      setSkipToast(null);
+    } else {
+      seekTo(currentTime - 8); // Iconic TiVo 8-second Instant Replay!
+    }
+  };
+
   const stepChannel = (delta: number) => {
     if (target.kind !== 'live' || channels.length < 2) return;
     const idx = channels.findIndex((c) => c.id === target.channel.id);
     if (idx === -1) return;
+    playTivoNavBloop();
     const next = channels[(idx + delta + channels.length) % channels.length];
     onSwitchChannel(next);
   };
 
-  // Smart TV Remote / Keyboard controls inside fullscreen player
+  // TiVo Remote / Smart TV Keyboard controls inside fullscreen player
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       bumpHud();
       if (e.key === 'Escape' || e.key === 'Backspace') {
         e.preventDefault();
+        playTivoBackBoop();
         onClose();
       } else if (e.key === ' ' || e.key === 'Enter' || e.key === 'MediaPlayPause') {
         if ((document.activeElement as HTMLElement)?.tagName !== 'BUTTON') {
           e.preventDefault();
           togglePlay();
         }
+      } else if (e.key.toLowerCase() === 'd' && target.kind === 'recording' && activeCommercial) {
+        // Iconic TiVo green 'D' button for instant SkipMode jump!
+        e.preventDefault();
+        triggerCommercialSkip(activeCommercial);
       } else if (e.key === 'ArrowRight' || e.key === 'MediaFastForward') {
         e.preventDefault();
-        seekTo(currentTime + 15);
+        seekTo(currentTime + 30);
       } else if (e.key === 'ArrowLeft' || e.key === 'MediaRewind') {
         e.preventDefault();
-        if (skipToast) {
-          // Pressing Left right after an auto-skip undoes the commercial skip!
-          setAutoSkip(false);
-          seekTo(skipToast.returnToSec);
-          setSkipToast(null);
-        } else {
-          seekTo(currentTime - 10);
-        }
+        instantReplay8s();
       } else if (e.key === 'ChannelUp' || (e.key === 'ArrowUp' && target.kind === 'live')) {
         e.preventDefault();
         stepChannel(-1);
@@ -334,9 +386,10 @@ export function VideoPlayer({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [currentTime, skipToast, target, channels]);
+  }, [currentTime, skipToast, target, channels, activeCommercial]);
 
   const progressPct = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const tickMarks = [20, 40, 60, 80];
 
   return (
     <div className="player-overlay" onMouseMove={bumpHud}>
@@ -363,24 +416,25 @@ export function VideoPlayer({
             flex: 1,
             display: 'grid',
             placeItems: 'center',
-            background:
-              activeCommercial
-                ? 'radial-gradient(circle at center, #451a03 0%, #090d16 70%)'
-                : 'radial-gradient(circle at center, #0c2648 0%, #060911 72%)',
+            background: activeCommercial
+              ? 'radial-gradient(circle at center, #78350f 0%, #061330 70%)'
+              : 'radial-gradient(circle at center, #143b8c 0%, #040e26 72%)',
             transition: 'background 0.4s',
           }}
         >
-          <div style={{ textAlign: 'center', maxWidth: 640, padding: 32 }}>
+          <div style={{ textAlign: 'center', maxWidth: 660, padding: 32 }}>
             <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'center', gap: 10 }}>
               {target.kind === 'live' ? (
                 <span className="pill pill-live">● LIVE OTA SIMULATOR</span>
               ) : activeCommercial ? (
-                <span className="pill pill-ad">COMMERCIAL BREAK DETECTED</span>
+                <span className="pill pill-ad">COMMERCIAL BREAK — PRESS D OR SKIP</span>
               ) : (
-                <span className="pill pill-new">DVR PLAYBACK PREVIEW</span>
+                <span className="pill pill-skip">
+                  <Zap size={12} /> SKIPMODE™ READY
+                </span>
               )}
             </div>
-            <h2 style={{ fontSize: 34, fontWeight: 800, marginBottom: 10 }}>
+            <h2 style={{ fontSize: 36, fontWeight: 900, marginBottom: 10 }}>
               {target.kind === 'live'
                 ? `${target.channel.guideNumber} ${target.channel.guideName}`
                 : target.recording.title}
@@ -389,25 +443,27 @@ export function VideoPlayer({
               {statusMessage}
             </p>
             {target.kind === 'recording' && commercials.length > 0 && (
-              <p style={{ color: '#fcd34d', fontSize: 14, marginTop: 14 }}>
-                {commercials.length} commercial break(s) loaded on the amber timeline below. Scrub
-                or play into an amber marker to see Auto-Skip in action!
+              <p style={{ color: '#fde047', fontSize: 14, marginTop: 14, fontWeight: 600 }}>
+                {commercials.length} commercial break(s) marked in gold on the TiVo TrickPlay bar
+                below. Play or scrub into a gold marker to test SkipMode™!
               </p>
             )}
           </div>
         </div>
       )}
 
-      {/* Auto-Skip Undo Toast */}
+      {/* Iconic TiVo SkipMode™ Toast */}
       {skipToast && (
         <div className="skip-toast">
-          <Scissors size={20} color="#f59e0b" />
+          <span className="pill pill-skip" style={{ fontSize: 13, padding: '6px 12px' }}>
+            <Zap size={14} /> SKIP
+          </span>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>
-              Skipped {formatDuration(skipToast.skippedSeconds)} commercial
+            <div style={{ fontWeight: 800, fontSize: 15 }}>
+              SkipMode™ jumped {formatDuration(skipToast.skippedSeconds)} of commercials
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-              Press Left Arrow or click Undo to watch it
+              Press Instant Replay (←) or click Undo to watch them
             </div>
           </div>
           <button
@@ -423,26 +479,34 @@ export function VideoPlayer({
         </div>
       )}
 
-      {/* Top HUD */}
+      {/* Top Broadcast Info Banner */}
       {hudVisible && (
         <div className="player-hud-top">
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <button className="btn btn-secondary" onClick={onClose}>
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                playTivoBackBoop();
+                onClose();
+              }}
+            >
               <ArrowLeft size={18} /> Back
             </button>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 {target.kind === 'live' ? (
                   <>
-                    <span className="pill pill-live">● LIVE</span>
-                    <span style={{ fontWeight: 800, fontSize: 20 }}>
+                    <span className="pill pill-live">● LIVE TV</span>
+                    <span style={{ fontWeight: 900, fontSize: 22 }}>
                       {target.channel.guideNumber} {target.channel.guideName}
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="pill pill-new">DVR</span>
-                    <span style={{ fontWeight: 800, fontSize: 20 }}>{target.recording.title}</span>
+                    <span className="pill pill-skip">
+                      <Zap size={11} /> SKIPMODE
+                    </span>
+                    <span style={{ fontWeight: 900, fontSize: 22 }}>{target.recording.title}</span>
                     {target.recording.episodeNum && (
                       <span className="pill pill-hd">{target.recording.episodeNum}</span>
                     )}
@@ -466,7 +530,13 @@ export function VideoPlayer({
                 <button className="btn btn-secondary" onClick={() => stepChannel(1)}>
                   <ChevronDown size={17} /> Ch +
                 </button>
-                <button className="btn btn-danger" onClick={() => onRecordNow(target.channel)}>
+                <button
+                  className="btn btn-danger"
+                  onClick={() => {
+                    playTivoRecordTone();
+                    onRecordNow(target.channel);
+                  }}
+                >
                   <CircleDot size={16} /> Record
                 </button>
               </>
@@ -474,99 +544,154 @@ export function VideoPlayer({
 
             {target.kind === 'recording' && (
               <button
-                className={`btn ${autoSkip ? 'btn-amber' : 'btn-secondary'}`}
-                onClick={() => setAutoSkip((v) => !v)}
+                className={`btn ${autoSkip ? 'btn-skip' : 'btn-secondary'}`}
+                onClick={() => {
+                  playTivoNavBloop();
+                  setAutoSkip((v) => !v);
+                }}
               >
-                <Scissors size={16} /> Auto-Skip Ads: {autoSkip ? 'ON' : 'OFF'}
+                <Zap size={16} /> Auto-SkipMode: {autoSkip ? 'ON' : 'OFF'}
               </button>
             )}
           </div>
         </div>
       )}
 
-      {/* Bottom Transport + Commercial Marker Timeline */}
+      {/* Iconic TiVo Rounded TrickPlay Status Bar */}
       {hudVisible && (
-        <div className="player-hud-bottom">
+        <div className="tivo-trickplay-dock">
           {target.kind === 'recording' && (
             <>
-              <div
-                className="timeline-track"
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                  lastSkipSegmentIdRef.current = null;
-                  seekTo(ratio * duration);
-                }}
-                title="Click to seek — amber regions are detected commercial breaks"
-              >
-                {commercials.map((seg) => {
-                  const leftPct = duration > 0 ? (seg.startSec / duration) * 100 : 0;
-                  const widthPct =
-                    duration > 0 ? Math.max(0.8, ((seg.endSec - seg.startSec) / duration) * 100) : 0;
-                  return (
-                    <div
-                      key={seg.id}
-                      className="timeline-ad-marker"
-                      style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                    />
-                  );
-                })}
-                <div className="timeline-progress" style={{ width: `${progressPct}%` }} />
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontSize: 13,
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                <span>{formatDuration(currentTime)}</span>
-                <span style={{ color: '#fcd34d' }}>
-                  {commercials.length > 0
-                    ? `${commercials.length} commercial break${commercials.length === 1 ? '' : 's'} marked in amber`
-                    : 'No commercials detected'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <span style={{ fontWeight: 900, fontSize: 14, minWidth: 52, color: '#86efac' }}>
+                  {formatDuration(currentTime)}
                 </span>
-                <span>{formatDuration(duration)}</span>
+
+                <div
+                  className="timeline-track"
+                  style={{ flex: 1 }}
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    lastSkipSegmentIdRef.current = null;
+                    setTrickSpeed(1);
+                    seekTo(ratio * duration);
+                  }}
+                  title="TiVo TrickPlay Bar — Gold blocks are detected commercial breaks"
+                >
+                  {tickMarks.map((pct) => (
+                    <div key={pct} className="timeline-tick" style={{ left: `${pct}%` }} />
+                  ))}
+                  {commercials.map((seg) => {
+                    const leftPct = duration > 0 ? (seg.startSec / duration) * 100 : 0;
+                    const widthPct =
+                      duration > 0 ? Math.max(1, ((seg.endSec - seg.startSec) / duration) * 100) : 0;
+                    return (
+                      <div
+                        key={seg.id}
+                        className="timeline-ad-marker"
+                        style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                      />
+                    );
+                  })}
+                  <div className="timeline-progress" style={{ width: `${progressPct}%` }} />
+                </div>
+
+                <span style={{ fontWeight: 800, fontSize: 14, minWidth: 52, textAlign: 'right' }}>
+                  {formatDuration(duration)}
+                </span>
               </div>
             </>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {target.kind === 'recording' && (
+                <>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={instantReplay8s}
+                    title="TiVo 8-Second Instant Replay"
+                  >
+                    <RotateCcw size={16} /> 8s Replay
+                  </button>
+                  <button
+                    className={`btn ${trickSpeed < 0 ? 'btn-amber' : 'btn-secondary'}`}
+                    onClick={() => {
+                      playTivoNavBloop();
+                      setTrickSpeed((s) => (s < 0 ? (s <= -3 ? -1 : s - 1) : -1));
+                    }}
+                  >
+                    <Rewind size={16} /> {trickSpeed < 0 ? `${Math.abs(trickSpeed)}x` : 'Rew'}
+                  </button>
+                </>
+              )}
+
               <button className="btn btn-primary" onClick={togglePlay}>
-                {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-                {isPlaying ? 'Pause' : 'Play'}
+                {isPlaying && trickSpeed === 1 ? <Pause size={18} /> : <Play size={18} />}
+                {isPlaying && trickSpeed === 1 ? 'Pause' : 'Play'}
               </button>
 
               {target.kind === 'recording' && (
                 <>
-                  <button className="btn btn-secondary" onClick={() => seekTo(currentTime - 15)}>
-                    <Rewind size={16} /> -15s
+                  <button
+                    className={`btn ${trickSpeed > 1 ? 'btn-amber' : 'btn-secondary'}`}
+                    onClick={() => {
+                      playTivoNavBloop();
+                      setTrickSpeed((s) => (s >= 3 ? 1 : s < 1 ? 2 : s + 1));
+                    }}
+                  >
+                    <FastForward size={16} /> {trickSpeed > 1 ? `${trickSpeed}x` : 'FF'}
                   </button>
-                  <button className="btn btn-secondary" onClick={() => seekTo(currentTime + 30)}>
-                    <FastForward size={16} /> +30s
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      playTivoNavBloop();
+                      setTrickSpeed(1);
+                      seekTo(currentTime + 30);
+                    }}
+                  >
+                    +30s Advance
                   </button>
-                  {activeCommercial && (
+
+                  {activeCommercial ? (
                     <button
-                      className="btn btn-amber"
-                      onClick={() => seekTo(activeCommercial.endSec)}
+                      className="btn btn-skip"
+                      onClick={() => triggerCommercialSkip(activeCommercial)}
                     >
-                      <SkipForward size={16} /> Skip Commercial
+                      <SkipForward size={16} /> SKIP COMMERCIAL (D)
                     </button>
-                  )}
+                  ) : nextOrActiveCommercial ? (
+                    <span style={{ fontSize: 12, color: '#86efac', fontWeight: 700, marginLeft: 4 }}>
+                      ● Next ad break at {formatDuration(nextOrActiveCommercial.startSec)}
+                    </span>
+                  ) : null}
                 </>
               )}
             </div>
 
-            <button
-              className="btn btn-secondary"
-              onClick={() => setIsMuted((m) => !m)}
-              aria-label="Toggle Mute"
-            >
-              {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {trickSpeed !== 1 && (
+                <span className="pill pill-ad">
+                  TrickPlay {trickSpeed > 0 ? `>>> ${trickSpeed}x` : `<<< ${Math.abs(trickSpeed)}x`}
+                </span>
+              )}
+              <button
+                className="btn btn-secondary"
+                onClick={() => setIsMuted((m) => !m)}
+                aria-label="Toggle Mute"
+              >
+                {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+              </button>
+            </div>
           </div>
         </div>
       )}

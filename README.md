@@ -22,9 +22,11 @@ A complete, self-hosted **Whole-House Over-the-Air (OTA) DVR** built with **Node
   - Primary: **Comskip** CLI integration with ATSC-tuned `server/comskip.ini` + standard `.edl` import/export.
   - Built-in Zero-Comskip Fallback: **FFmpeg `blackdetect` + `silencedetect`** analyzer that automatically identifies ad pods and writes `.edl` markers.
   - Both the **10-foot Web Player** and the **Native Android TV ExoPlayer** highlight commercial breaks in amber on the timeline, auto-skip commercials seamlessly, and show an **Undo Skip** toast (`Left Arrow` / D-pad Left to jump back).
-- **Whole-House Smart TV Apps**
+- **TiVo-Inspired Whole-House Smart TV Apps**
+  - **TiVo Central, My Shows & Guide UX**: Deep cobalt-blue broadcast theme, high-contrast gold D-pad focus rings, categorized **My Shows** folders with series grouping & green `SKIP` badges, classic **Top Program Synopsis Banner** above the Live TV Guide, **To Do List & OnePass™ Manager**, and subtle toggleable TiVo UI audio cues.
+  - **TiVo TrickPlay & SkipMode™ Player**: Rounded TrickPlay status bar with tick marks, gold commercial segments, **8-second Instant Replay**, **+30s Advance**, **3-speed Fast Forward / Rewind**, and one-button **SkipMode™** (`D` key) with Undo toast.
   - **Native Android TV / Google TV / Fire TV App (`android-tv/`)**: Kotlin + Jetpack Compose + Media3 ExoPlayer + UDP LAN Server Auto-Discovery (`UDP 41234`), full D-pad & media-key remote support, and whole-house resume position sync.
-  - **10-Foot Smart TV Web UI (`web/`)**: React + Vite + HLS.js with spatial D-pad keyboard navigation (`Arrow` keys, `Enter`, `Back`, `Channel +/-`) that works in any Smart TV browser, desktop, tablet, or phone.
+  - **10-Foot Smart TV Web UI (`web/`)**: React + Vite + HLS.js with spatial D-pad keyboard navigation (`Arrow` keys, `Enter`, `Back`, `Channel +/-`, `D` for SkipMode) that works in any Smart TV browser, desktop, tablet, or phone.
 
 ---
 
