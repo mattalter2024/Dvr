@@ -167,6 +167,21 @@ export interface SystemCapabilities {
   discoveryUdpPort: number;
 }
 
+export interface StreamingApp {
+  id: string;
+  name: string;
+  tagline: string;
+  category: string;
+  webUrl: string;
+  androidPackage: string;
+  fallbackAndroidPackage: string | null;
+  brandColor: string;
+  monogram: string;
+  pinned: boolean;
+  enabled: boolean;
+  sortOrder: number;
+}
+
 export interface WsEvent {
   type:
     | 'tuner_update'
@@ -176,7 +191,8 @@ export interface WsEvent {
     | 'recording_failed'
     | 'commercials_scanned'
     | 'guide_updated'
-    | 'schedule_updated';
+    | 'schedule_updated'
+    | 'apps_updated';
   payload: unknown;
   timestamp: string;
 }

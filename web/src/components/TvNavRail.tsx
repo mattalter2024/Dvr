@@ -3,6 +3,7 @@ import {
   CalendarClock,
   Film,
   Home,
+  LayoutGrid,
   Radio,
   Settings,
   Tv,
@@ -16,7 +17,7 @@ import {
   setTivoSoundsEnabled,
 } from '../utils/tivoSounds';
 
-export type NavTab = 'home' | 'guide' | 'recordings' | 'schedule' | 'settings';
+export type NavTab = 'home' | 'guide' | 'recordings' | 'apps' | 'schedule' | 'settings';
 
 interface TvNavRailProps {
   activeTab: NavTab;
@@ -57,6 +58,7 @@ export function TvNavRail({
       badge: activeRecordingsCount > 0 ? activeRecordingsCount : undefined,
     },
     { id: 'guide', label: 'Guide', icon: Tv },
+    { id: 'apps', label: 'Streaming Apps', icon: LayoutGrid },
     { id: 'schedule', label: 'To Do & OnePass', icon: CalendarClock },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];

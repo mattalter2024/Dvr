@@ -653,6 +653,113 @@ export function createApiRouter(deps: ApiDeps): Router {
     res.status(204).end();
   });
 
+  // ==================== STREAMING APPS ====================
+
+  router.get('/apps', (req, res) => {
+    const includeDisabled = req.query.all === 'true';
+    res.json({ apps: db.listStreamingApps(includeDisabled) });
+  });
+
+  router.post('/apps', (req, res) => {
+    const name = String(req.body?.name ?? '').trim();
+    const webUrl = String(req.body?.webUrl ?? '').trim();
+    if (!name || !webUrl) {
+      res.status(400).json({ error: 'App name and webUrl are required' });
+      return;
+    }
+
+    const normalizedUrl =
+      webUrl.startsWith('http://') || webUrl.startsWith('https://') ? webUrl : `https://${webUrl}`;
+    const slug =
+      String(req.body?.id ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, '-') ||
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') ||
+      uuid().slice(0, 8);
+
+    const existing = db.listStreamingApps(true);
+    const maxOrder = existing.reduce((max, a) => Math.max(max, a.sortOrder), 0);
+    const monogram =
+      String(req.body?.monogram ?? '')
+        .trim()
+        .toUpperCase()
+        .slice(0, 6) ||
+      name
+        .split(/\s+/)
+        .map((w) => w[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 4);
+
+    const created = {
+      id: slug,
+      name,
+      tagline: String(req.body?.tagline ?? 'Streaming service').trim(),
+      category: String(req.body?.category ?? 'Subscription').trim(),
+      webUrl: normalizedUrl,
+      androidPackage: String(req.body?.androidPackage ?? '').trim(),
+      fallbackAndroidPackage: req.body?.fallbackAndroidPackage
+        ? String(req.body.fallbackAndroidPackage).trim()
+        : null,
+      brandColor: String(req.body?.brandColor ?? '#334155').trim(),
+      monogram,
+      pinned: req.body?.pinned !== undefined ? Boolean(req.body.pinned) : true,
+      enabled: true,
+      sortOrder: Number(req.body?.sortOrder ?? maxOrder + 10),
+    };
+
+    db.upsertStreamingApp(created);
+    const allApps = db.listStreamingApps(false);
+    broadcast('apps_updated', allApps);
+    res.status(201).json({ app: created, apps: allApps });
+  });
+
+  router.patch('/apps/:id', (req, res) => {
+    const existing = db.getStreamingApp(req.params.id);
+    if (!existing) {
+      res.status(404).json({ error: 'Streaming app not found' });
+      return;
+    }
+    const next = {
+      ...existing,
+      name: req.body?.name !== undefined ? String(req.body.name).trim() : existing.name,
+      tagline: req.body?.tagline !== undefined ? String(req.body.tagline).trim() : existing.tagline,
+      category:
+        req.body?.category !== undefined ? String(req.body.category).trim() : existing.category,
+      webUrl: req.body?.webUrl !== undefined ? String(req.body.webUrl).trim() : existing.webUrl,
+      androidPackage:
+        req.body?.androidPackage !== undefined
+          ? String(req.body.androidPackage).trim()
+          : existing.androidPackage,
+      brandColor:
+        req.body?.brandColor !== undefined
+          ? String(req.body.brandColor).trim()
+          : existing.brandColor,
+      monogram:
+        req.body?.monogram !== undefined
+          ? String(req.body.monogram).trim().toUpperCase().slice(0, 6)
+          : existing.monogram,
+      pinned: req.body?.pinned !== undefined ? Boolean(req.body.pinned) : existing.pinned,
+      enabled: req.body?.enabled !== undefined ? Boolean(req.body.enabled) : existing.enabled,
+      sortOrder:
+        req.body?.sortOrder !== undefined ? Number(req.body.sortOrder) : existing.sortOrder,
+    };
+    db.upsertStreamingApp(next);
+    const allApps = db.listStreamingApps(false);
+    broadcast('apps_updated', allApps);
+    res.json({ app: next, apps: allApps });
+  });
+
+  router.delete('/apps/:id', (req, res) => {
+    db.deleteStreamingApp(req.params.id);
+    broadcast('apps_updated', db.listStreamingApps(false));
+    res.status(204).end();
+  });
+
   return router;
 }
 

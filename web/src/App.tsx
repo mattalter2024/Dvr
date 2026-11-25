@@ -6,6 +6,7 @@ import {
   type Program,
   type Recording,
   type SeriesPass,
+  type StreamingApp,
   type TunerUtilization,
 } from './api/client';
 import { TvNavRail, type NavTab } from './components/TvNavRail';
@@ -14,6 +15,7 @@ import { useTvNavigation } from './hooks/useTvNavigation';
 import { HomePage } from './pages/HomePage';
 import { GuidePage } from './pages/GuidePage';
 import { RecordingsPage } from './pages/RecordingsPage';
+import { AppsPage } from './pages/AppsPage';
 import { SchedulePage } from './pages/SchedulePage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -40,6 +42,7 @@ export function App() {
   >([]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [seriesPasses, setSeriesPasses] = useState<SeriesPass[]>([]);
+  const [apps, setApps] = useState<StreamingApp[]>([]);
   const [autoSkipDefault, setAutoSkipDefault] = useState(true);
   const [playerTarget, setPlayerTarget] = useState<PlayerTarget | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -56,7 +59,7 @@ export function App() {
 
   const refreshAll = useCallback(async () => {
     try {
-      const [h, t, ch, np, rec, sp, st] = await Promise.all([
+      const [h, t, ch, np, rec, sp, st, appRes] = await Promise.all([
         api.health(),
         api.getTuners(),
         api.getChannels(),
@@ -64,6 +67,7 @@ export function App() {
         api.getRecordings(),
         api.getSeriesPasses(),
         api.getSettings(),
+        api.getApps(),
       ]);
       setHealth(h);
       setTuners(t.tuners);
@@ -72,6 +76,7 @@ export function App() {
       setRecordings(rec.recordings);
       setSeriesPasses(sp.seriesPasses);
       setAutoSkipDefault(st.settings.autoSkipCommercialsDefault);
+      setApps(appRes.apps);
       setRefreshSignal((s) => s + 1);
     } catch (err) {
       console.error('Failed to refresh DVR state:', err);
@@ -146,6 +151,11 @@ export function App() {
                 setSeriesPasses(sp.seriesPasses);
                 setRefreshSignal((s) => s + 1);
               });
+              break;
+            case 'apps_updated':
+              if (Array.isArray(msg.payload)) {
+                setApps(msg.payload as StreamingApp[]);
+              }
               break;
             default:
               void refreshAll();
@@ -233,11 +243,17 @@ export function App() {
             health={health}
             nowPlaying={nowPlaying}
             recordings={recordings}
+            apps={apps}
             onWatchLive={(channel) => setPlayerTarget({ kind: 'live', channel })}
             onPlayRecording={(recording) => setPlayerTarget({ kind: 'recording', recording })}
             onQuickTestRecord={(channel) => void handleQuickTestRecord(channel)}
             onOpenGuide={() => setActiveTab('guide')}
+            onOpenApps={() => setActiveTab('apps')}
           />
+        )}
+
+        {activeTab === 'apps' && (
+          <AppsPage apps={apps} onAppsChanged={setApps} onNotify={notify} />
         )}
 
         {activeTab === 'guide' && (

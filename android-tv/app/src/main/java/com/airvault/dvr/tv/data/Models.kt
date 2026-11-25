@@ -78,3 +78,16 @@ data class SeriesPass(
     val newOnly: Boolean,
     val keepLimit: Int,
 )
+
+data class StreamingApp(
+    val id: String,
+    val name: String,
+    val tagline: String,
+    val category: String,
+    val webUrl: String,
+    val androidPackage: String,
+    val fallbackAndroidPackage: String?,
+    val brandColor: String,
+    val monogram: String,
+    val pinned: Boolean,
+)

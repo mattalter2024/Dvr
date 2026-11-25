@@ -14,6 +14,7 @@ import { DvrRecorder } from './dvr/recorder.js';
 import { DvrScheduler } from './dvr/scheduler.js';
 import { HlsLiveManager } from './streaming/hlsManager.js';
 import { LanDiscoveryResponder } from './discovery/lanDiscovery.js';
+import { DEFAULT_STREAMING_APPS } from './apps/defaultApps.js';
 import { createApiRouter } from './routes/api.js';
 import type { WsEvent } from './types/index.js';
 
@@ -72,6 +73,13 @@ export async function createServer() {
     db.upsertTuner(createVirtualTunerDevice(settings.virtualTunerCount));
     for (const ch of createVirtualChannels()) {
       db.upsertChannel(ch);
+    }
+  }
+
+  // Seed default Streaming Apps (Netflix, HBO Max, Pluto TV) if none configured yet
+  if (db.listStreamingApps(true).length === 0) {
+    for (const appEntry of DEFAULT_STREAMING_APPS) {
+      db.upsertStreamingApp(appEntry);
     }
   }
 

@@ -113,6 +113,21 @@ export interface SeriesPass {
   createdAt: string;
 }
 
+export interface StreamingApp {
+  id: string;
+  name: string;
+  tagline: string;
+  category: string;
+  webUrl: string;
+  androidPackage: string;
+  fallbackAndroidPackage: string | null;
+  brandColor: string;
+  monogram: string;
+  pinned: boolean;
+  enabled: boolean;
+  sortOrder: number;
+}
+
 export interface LiveSession {
   id: string;
   channelId: string;
@@ -310,6 +325,28 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(patch),
     }),
+
+  getApps: () => req<{ apps: StreamingApp[] }>('/api/apps'),
+  addApp: (payload: {
+    name: string;
+    webUrl: string;
+    tagline?: string;
+    category?: string;
+    androidPackage?: string;
+    brandColor?: string;
+    monogram?: string;
+    pinned?: boolean;
+  }) =>
+    req<{ app: StreamingApp; apps: StreamingApp[] }>('/api/apps', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateApp: (id: string, patch: Partial<StreamingApp>) =>
+    req<{ app: StreamingApp; apps: StreamingApp[] }>(`/api/apps/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+  deleteApp: (id: string) => req<void>(`/api/apps/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
 
 export function formatTime(iso: string): string {

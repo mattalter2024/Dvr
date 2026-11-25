@@ -9,6 +9,7 @@ import type {
   Program,
   Recording,
   SeriesPass,
+  StreamingApp,
   TunerDevice,
 } from '../types/index.js';
 
@@ -148,6 +149,21 @@ export class DvrDatabase {
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS streaming_apps (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        tagline TEXT NOT NULL DEFAULT '',
+        category TEXT NOT NULL DEFAULT 'Streaming',
+        web_url TEXT NOT NULL,
+        android_package TEXT NOT NULL DEFAULT '',
+        fallback_android_package TEXT,
+        brand_color TEXT NOT NULL DEFAULT '#334155',
+        monogram TEXT NOT NULL DEFAULT 'TV',
+        pinned INTEGER NOT NULL DEFAULT 1,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        sort_order INTEGER NOT NULL DEFAULT 100
       );
     `);
   }
@@ -719,5 +735,76 @@ export class DvrDatabase {
       confidence: Number(r.confidence),
       source: String(r.source) as CommercialSegment['source'],
     }));
+  }
+
+  // ==================== STREAMING APPS ====================
+
+  private mapStreamingApp(r: Record<string, unknown>): StreamingApp {
+    return {
+      id: String(r.id),
+      name: String(r.name),
+      tagline: String(r.tagline ?? ''),
+      category: String(r.category ?? 'Streaming'),
+      webUrl: String(r.web_url),
+      androidPackage: String(r.android_package ?? ''),
+      fallbackAndroidPackage: r.fallback_android_package
+        ? String(r.fallback_android_package)
+        : null,
+      brandColor: String(r.brand_color ?? '#334155'),
+      monogram: String(r.monogram ?? 'TV'),
+      pinned: Number(r.pinned) === 1,
+      enabled: Number(r.enabled) === 1,
+      sortOrder: Number(r.sort_order ?? 100),
+    };
+  }
+
+  listStreamingApps(includeDisabled = false): StreamingApp[] {
+    const sql = includeDisabled
+      ? 'SELECT * FROM streaming_apps ORDER BY sort_order ASC, name ASC'
+      : 'SELECT * FROM streaming_apps WHERE enabled = 1 ORDER BY sort_order ASC, name ASC';
+    return this.all<Record<string, unknown>>(sql).map((r) => this.mapStreamingApp(r));
+  }
+
+  getStreamingApp(id: string): StreamingApp | null {
+    const row = this.get<Record<string, unknown>>('SELECT * FROM streaming_apps WHERE id = ?', [id]);
+    return row ? this.mapStreamingApp(row) : null;
+  }
+
+  upsertStreamingApp(app: StreamingApp): void {
+    this.run(
+      `INSERT INTO streaming_apps
+       (id, name, tagline, category, web_url, android_package, fallback_android_package, brand_color, monogram, pinned, enabled, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name,
+         tagline = excluded.tagline,
+         category = excluded.category,
+         web_url = excluded.web_url,
+         android_package = excluded.android_package,
+         fallback_android_package = excluded.fallback_android_package,
+         brand_color = excluded.brand_color,
+         monogram = excluded.monogram,
+         pinned = excluded.pinned,
+         enabled = excluded.enabled,
+         sort_order = excluded.sort_order`,
+      [
+        app.id,
+        app.name,
+        app.tagline,
+        app.category,
+        app.webUrl,
+        app.androidPackage,
+        app.fallbackAndroidPackage,
+        app.brandColor,
+        app.monogram,
+        app.pinned ? 1 : 0,
+        app.enabled ? 1 : 0,
+        app.sortOrder,
+      ],
+    );
+  }
+
+  deleteStreamingApp(id: string): void {
+    this.run('DELETE FROM streaming_apps WHERE id = ?', [id]);
   }
 }

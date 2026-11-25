@@ -195,6 +195,31 @@ class DvrApiClient(rawBaseUrl: String) {
         return obj.optJSONArray("commercials")?.length() ?: 0
     }
 
+    suspend fun fetchApps(): List<StreamingApp> {
+        val obj = getJson("/api/apps")
+        val arr = obj.optJSONArray("apps") ?: JSONArray()
+        return buildList {
+            for (i in 0 until arr.length()) {
+                val a = arr.getJSONObject(i)
+                add(
+                    StreamingApp(
+                        id = a.getString("id"),
+                        name = a.getString("name"),
+                        tagline = a.optString("tagline", ""),
+                        category = a.optString("category", "Streaming"),
+                        webUrl = a.getString("webUrl"),
+                        androidPackage = a.optString("androidPackage", ""),
+                        fallbackAndroidPackage = a.optString("fallbackAndroidPackage", "")
+                            .takeIf { it.isNotBlank() && it != "null" },
+                        brandColor = a.optString("brandColor", "#334155"),
+                        monogram = a.optString("monogram", "TV"),
+                        pinned = a.optBoolean("pinned", true),
+                    ),
+                )
+            }
+        }
+    }
+
     fun recordingStreamUrl(recordingId: String): String =
         "$baseUrl/api/recordings/$recordingId/stream"
 

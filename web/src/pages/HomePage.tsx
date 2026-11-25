@@ -1,4 +1,4 @@
-import { CircleDot, Tv } from 'lucide-react';
+import { CircleDot, ExternalLink, Tv } from 'lucide-react';
 import {
   formatDuration,
   formatTime,
@@ -8,6 +8,7 @@ import {
   type HealthResponse,
   type Program,
   type Recording,
+  type StreamingApp,
 } from '../api/client';
 import { playTivoRecordTone, playTivoSelectChime } from '../utils/tivoSounds';
 
@@ -15,23 +16,28 @@ interface HomePageProps {
   health: HealthResponse | null;
   nowPlaying: Array<{ channel: Channel; current: Program | null; next: Program | null }>;
   recordings: Recording[];
+  apps: StreamingApp[];
   onWatchLive: (channel: Channel) => void;
   onPlayRecording: (recording: Recording) => void;
   onQuickTestRecord: (channel: Channel) => void;
   onOpenGuide: () => void;
+  onOpenApps: () => void;
 }
 
 export function HomePage({
   health,
   nowPlaying,
   recordings,
+  apps,
   onWatchLive,
   onPlayRecording,
   onQuickTestRecord,
   onOpenGuide,
+  onOpenApps,
 }: HomePageProps) {
   const activeRecs = recordings.filter((r) => r.status === 'recording');
   const myShowsRecent = recordings.filter((r) => r.status === 'completed').slice(0, 6);
+  const pinnedApps = apps.filter((a) => a.pinned);
   const toDoQueue = recordings
     .filter((r) => r.status === 'scheduled' || r.status === 'conflict')
     .slice(0, 4);
@@ -114,6 +120,79 @@ export function HomePage({
                     Watch from start
                   </div>
                 </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Pinned Streaming Apps Row */}
+      {pinnedApps.length > 0 && (
+        <section>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <h2 className="section-heading" style={{ marginBottom: 0 }}>Streaming Apps</h2>
+            <button
+              className="btn btn-secondary"
+              style={{ padding: '5px 10px', fontSize: 12 }}
+              onClick={onOpenApps}
+            >
+              Manage Apps
+            </button>
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+              gap: 12,
+            }}
+          >
+            {pinnedApps.map((app) => (
+              <button
+                key={app.id}
+                className="channel-card"
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: '12px 14px',
+                  gap: 12,
+                }}
+                onClick={() => {
+                  playTivoSelectChime();
+                  window.open(app.webUrl, '_blank', 'noopener,noreferrer');
+                }}
+              >
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 10,
+                    background: `linear-gradient(145deg, ${app.brandColor}55, #0c1220)`,
+                    border: '1px solid var(--border-subtle)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: app.monogram.length > 3 ? 11 : 15,
+                    fontWeight: 800,
+                    letterSpacing: '0.04em',
+                    flexShrink: 0,
+                  }}
+                >
+                  {app.monogram}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{app.name}</div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--text-muted)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {app.category}
+                  </div>
+                </div>
+                <ExternalLink size={14} color="var(--text-muted)" />
               </button>
             ))}
           </div>

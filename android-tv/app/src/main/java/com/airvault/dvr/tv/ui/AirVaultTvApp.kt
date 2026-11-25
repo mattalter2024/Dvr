@@ -1,6 +1,8 @@
 package com.airvault.dvr.tv.ui
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -46,6 +48,7 @@ private val TivoMuted = Color(0xFF98A6BD)
 private enum class TvSection(val label: String) {
     MY_SHOWS("My Shows"),
     GUIDE("Guide"),
+    APPS("Streaming Apps"),
     TODO("To Do & OnePass"),
     SERVER("Settings"),
 }
@@ -104,6 +107,7 @@ fun AirVaultTvApp() {
     var guideRows by remember { mutableStateOf<List<GuideRow>>(emptyList()) }
     var recordings by remember { mutableStateOf<List<DvrRecording>>(emptyList()) }
     var seriesPasses by remember { mutableStateOf<List<SeriesPass>>(emptyList()) }
+    var streamingApps by remember { mutableStateOf<List<StreamingApp>>(emptyList()) }
     var selectedProgram by remember { mutableStateOf<Pair<TvChannel, TvProgram>?>(null) }
     var statusBanner by remember { mutableStateOf<String?>(null) }
 
@@ -123,6 +127,7 @@ fun AirVaultTvApp() {
             guideRows = client.fetchGuide(6)
             recordings = client.fetchRecordings()
             seriesPasses = client.fetchSeriesPasses()
+            streamingApps = client.fetchApps()
         }.onFailure {
             showBanner("Connection error: ${it.message}")
         }
@@ -253,6 +258,16 @@ fun AirVaultTvApp() {
                             rows = guideRows,
                             onWatchChannel = { ch -> playbackRequest = TvPlaybackRequest.Live(ch) },
                             onSelectProgram = { ch, prog -> selectedProgram = ch to prog },
+                        )
+                    }
+
+                    TvSection.APPS -> {
+                        StreamingAppsTvView(
+                            apps = streamingApps,
+                            onLaunch = { app ->
+                                val ok = launchStreamingApp(context, app)
+                                if (!ok) showBanner("Unable to launch ${app.name} on this TV")
+                            },
                         )
                     }
 
@@ -769,5 +784,103 @@ private fun ScheduleTvView(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun StreamingAppsTvView(
+    apps: List<StreamingApp>,
+    onLaunch: (StreamingApp) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("Streaming Apps", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        if (apps.isEmpty()) {
+            Text(
+                "No streaming apps configured yet. Add them from the DVR web interface.",
+                color = TivoMuted,
+                fontSize = 15.sp,
+            )
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                items(apps, key = { it.id }) { app ->
+                    val tint = remember(app.brandColor) {
+                        runCatching { Color(android.graphics.Color.parseColor(app.brandColor)) }
+                            .getOrDefault(TivoCard)
+                    }
+                    Surface(
+                        color = TivoPanel,
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, Color(0x1CFFFFFF)),
+                        modifier = Modifier
+                            .width(240.dp)
+                            .clickable { onLaunch(app) },
+                    ) {
+                        Column {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(124.dp)
+                                    .background(tint.copy(alpha = 0.28f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    app.monogram,
+                                    color = Color.White,
+                                    fontSize = if (app.monogram.length > 3) 24.sp else 34.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 2.sp,
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(app.name, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                                Text(
+                                    app.tagline.ifBlank { app.category },
+                                    fontSize = 12.sp,
+                                    color = TivoMuted,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun launchStreamingApp(context: Context, app: StreamingApp): Boolean {
+    val pm = context.packageManager
+    val candidates = listOfNotNull(
+        app.androidPackage.takeIf { it.isNotBlank() },
+        app.fallbackAndroidPackage?.takeIf { it.isNotBlank() },
+    )
+    for (pkg in candidates) {
+        val intent = pm.getLeanbackLaunchIntentForPackage(pkg) ?: pm.getLaunchIntentForPackage(pkg)
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            return true
+        }
+    }
+    // Fallback: open Play Store / Appstore listing or web URL if not yet installed on this TV
+    val fallbackUri = if (candidates.isNotEmpty()) {
+        Uri.parse("market://details?id=${candidates.first()}")
+    } else {
+        Uri.parse(app.webUrl)
+    }
+    return runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, fallbackUri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        true
+    }.getOrElse {
+        runCatching {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(app.webUrl)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            true
+        }.getOrDefault(false)
     }
 }
