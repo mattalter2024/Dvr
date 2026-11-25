@@ -252,6 +252,7 @@ class DvrApiClient(rawBaseUrl: String) {
         network = c.optString("network", "OTA"),
         hd = c.optBoolean("hd", true),
         favorite = c.optBoolean("favorite", false),
+        watchCount = c.optInt("watchCount", 0),
     )
 
     private fun parseProgram(p: JSONObject) = TvProgram(

@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -46,6 +47,7 @@ private val TivoRecRed = Color(0xFFEF4444)
 private val TivoMuted = Color(0xFF98A6BD)
 
 private enum class TvSection(val label: String) {
+    HOME("Home"),
     MY_SHOWS("My Shows"),
     GUIDE("Guide"),
     APPS("Streaming Apps"),
@@ -101,7 +103,7 @@ fun AirVaultTvApp() {
 
     var serverUrl by remember { mutableStateOf(prefs.getString("server_url", null)) }
     var serverName by remember { mutableStateOf("AirVault DVR") }
-    var activeSection by remember { mutableStateOf(TvSection.MY_SHOWS) }
+    var activeSection by remember { mutableStateOf(TvSection.HOME) }
     var playbackRequest by remember { mutableStateOf<TvPlaybackRequest?>(null) }
 
     var guideRows by remember { mutableStateOf<List<GuideRow>>(emptyList()) }
@@ -233,6 +235,23 @@ fun AirVaultTvApp() {
                     .padding(26.dp),
             ) {
                 when (activeSection) {
+                    TvSection.HOME -> {
+                        HomeTvView(
+                            api = api,
+                            imageLoader = imageLoader,
+                            guideRows = guideRows,
+                            recordings = recordings,
+                            apps = streamingApps,
+                            onWatchChannel = { ch -> playbackRequest = TvPlaybackRequest.Live(ch) },
+                            onPlayRecording = { rec -> playbackRequest = TvPlaybackRequest.Recording(rec) },
+                            onLaunchApp = { app ->
+                                val ok = launchStreamingApp(context, app)
+                                if (!ok) showBanner("Unable to launch ${app.name} on this TV")
+                            },
+                            onOpenGuide = { activeSection = TvSection.GUIDE },
+                        )
+                    }
+
                     TvSection.MY_SHOWS -> {
                         MyShowsTvView(
                             api = api,
@@ -782,6 +801,260 @@ private fun ScheduleTvView(
                     color = TivoMuted,
                     fontSize = 12.sp,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeTvView(
+    api: DvrApiClient,
+    imageLoader: ImageLoader,
+    guideRows: List<GuideRow>,
+    recordings: List<DvrRecording>,
+    apps: List<StreamingApp>,
+    onWatchChannel: (TvChannel) -> Unit,
+    onPlayRecording: (DvrRecording) -> Unit,
+    onLaunchApp: (StreamingApp) -> Unit,
+    onOpenGuide: () -> Unit,
+) {
+    val frequentRows = remember(guideRows) {
+        guideRows.sortedWith(
+            compareByDescending<GuideRow> { it.channel.watchCount }
+                .thenByDescending { it.channel.favorite },
+        )
+    }
+    var heroRow by remember(frequentRows) { mutableStateOf(frequentRows.firstOrNull()) }
+
+    val latestRecordings = remember(recordings) {
+        val active = recordings.filter { it.status == "recording" }
+        val completed = recordings.filter { it.status == "completed" }
+        (active + completed).take(10)
+    }
+
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        // 1. DIRECTV Stream-style "Your TV" Hero Preview + Frequent Channels Strip
+        item {
+            val activeHero = heroRow ?: frequentRows.firstOrNull()
+            if (activeHero != null) {
+                val heroProg = activeHero.programs.firstOrNull()
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(TivoPanel)
+                        .border(1.dp, Color(0x18FFFFFF), RoundedCornerShape(14.dp)),
+                ) {
+                    if (heroProg != null) {
+                        AsyncImage(
+                            model = api.programScreenshotUrl(heroProg, activeHero.channel),
+                            imageLoader = imageLoader,
+                            contentDescription = heroProg.title,
+                            contentScale = ContentScale.Crop,
+                            alpha = 0.42f,
+                            modifier = Modifier.matchParentSize(),
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(Color(0x550B101B), Color(0xEE0B101B)),
+                                ),
+                            ),
+                    )
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                "${activeHero.channel.guideNumber} ${activeHero.channel.guideName}",
+                                color = TivoAccent,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                heroProg?.title ?: "${activeHero.channel.guideName} Live",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                            )
+                            heroProg?.description?.let {
+                                Text(
+                                    it,
+                                    color = TivoMuted,
+                                    fontSize = 13.sp,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.padding(top = 6.dp),
+                            ) {
+                                Button(
+                                    onClick = { onWatchChannel(activeHero.channel) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                                ) { Text("Watch Live", color = Color.White) }
+                                Button(
+                                    onClick = onOpenGuide,
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = TivoCard),
+                                ) { Text("Full Guide") }
+                            }
+                        }
+
+                        Text("Frequent Channels", color = TivoMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            items(frequentRows, key = { it.channel.id }) { row ->
+                                val prog = row.programs.firstOrNull()
+                                val selected = activeHero.channel.id == row.channel.id
+                                Surface(
+                                    color = if (selected) Color(0xFF1D2A40) else Color(0xCC121A29),
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = BorderStroke(
+                                        if (selected) 1.5.dp else 1.dp,
+                                        if (selected) TivoAccent else Color(0x18FFFFFF),
+                                    ),
+                                    modifier = Modifier
+                                        .width(196.dp)
+                                        .clickable {
+                                            if (selected) onWatchChannel(row.channel)
+                                            else heroRow = row
+                                        },
+                                ) {
+                                    Column {
+                                        if (prog != null) {
+                                            ShowScreenshot(
+                                                url = api.programScreenshotUrl(prog, row.channel),
+                                                contentDescription = prog.title,
+                                                imageLoader = imageLoader,
+                                                width = 196.dp,
+                                                height = 104.dp,
+                                            )
+                                        }
+                                        Column(Modifier.padding(9.dp)) {
+                                            Text(
+                                                "${row.channel.guideNumber} ${row.channel.guideName}",
+                                                color = TivoAccent,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                            )
+                                            Text(
+                                                prog?.title ?: "Live Broadcast",
+                                                color = Color.White,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Latest Recordings Row
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Latest Recordings", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TivoMuted)
+                if (latestRecordings.isEmpty()) {
+                    Text(
+                        "No recordings yet. Pick a show from the Guide to record.",
+                        color = TivoMuted,
+                        fontSize = 13.sp,
+                    )
+                } else {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(latestRecordings, key = { it.id }) { rec ->
+                            Surface(
+                                color = TivoPanel,
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, Color(0x16FFFFFF)),
+                                modifier = Modifier
+                                    .width(220.dp)
+                                    .clickable { onPlayRecording(rec) },
+                            ) {
+                                Column {
+                                    ShowScreenshot(
+                                        url = api.recordingThumbnailUrl(rec.id),
+                                        contentDescription = rec.title,
+                                        imageLoader = imageLoader,
+                                        width = 220.dp,
+                                        height = 124.dp,
+                                    )
+                                    Column(Modifier.padding(10.dp)) {
+                                        Text(
+                                            rec.title,
+                                            color = Color.White,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Text(
+                                            "Ch ${rec.channelNumber} · ${if (rec.commercialCount > 0) "Skip (${rec.commercialCount})" else rec.channelName}",
+                                            color = if (rec.commercialCount > 0) TivoSkipGreen else TivoMuted,
+                                            fontSize = 11.sp,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Streaming Apps Row
+        if (apps.isNotEmpty()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Streaming Apps", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TivoMuted)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(apps.filter { it.pinned }, key = { it.id }) { app ->
+                            val tint = remember(app.brandColor) {
+                                runCatching { Color(android.graphics.Color.parseColor(app.brandColor)) }
+                                    .getOrDefault(TivoCard)
+                            }
+                            Surface(
+                                color = TivoPanel,
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, Color(0x18FFFFFF)),
+                                modifier = Modifier
+                                    .width(188.dp)
+                                    .clickable { onLaunchApp(app) },
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(tint.copy(alpha = 0.35f)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(app.monogram, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Column {
+                                        Text(app.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(app.category, color = TivoMuted, fontSize = 11.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -352,6 +352,104 @@ select {
   font-weight: 700;
 }
 
+/* ==================== DIRECTV-STYLE "YOUR TV" HOME STAGE ==================== */
+.dtv-hero {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: #090e18;
+  min-height: 356px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.dtv-hero-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.48;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.dtv-hero-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(11, 16, 27, 0.96) 0%, rgba(11, 16, 27, 0.72) 48%, rgba(11, 16, 27, 0.22) 100%),
+    linear-gradient(0deg, rgba(11, 16, 27, 0.98) 0%, rgba(11, 16, 27, 0.45) 45%, rgba(11, 16, 27, 0.1) 100%);
+  pointer-events: none;
+}
+
+.dtv-hero-content {
+  position: relative;
+  z-index: 2;
+  padding: 26px 28px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 640px;
+}
+
+.dtv-hero-carousel {
+  position: relative;
+  z-index: 2;
+  padding: 12px 24px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(11, 16, 27, 0.58);
+  backdrop-filter: blur(8px);
+}
+
+.dtv-row-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+.dtv-row-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.dtv-row-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+}
+
+.dtv-channel-tile {
+  flex: 0 0 218px;
+  scroll-snap-align: start;
+  background: rgba(18, 26, 41, 0.88);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+  text-align: left;
+  transition: border-color 0.14s, background 0.14s, transform 0.12s;
+}
+
+.dtv-channel-tile:hover,
+.dtv-channel-tile:focus-visible,
+.dtv-channel-tile.active {
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+}
+
+.dtv-rec-tile {
+  flex: 0 0 256px;
+  scroll-snap-align: start;
+}
+
+.dtv-app-tile {
+  flex: 0 0 206px;
+  scroll-snap-align: start;
+}
+
 /* ==================== CARDS & GRIDS ==================== */
 .card {
   background: var(--bg-surface);

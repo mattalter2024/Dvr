@@ -13,6 +13,7 @@ data class TvChannel(
     val network: String,
     val hd: Boolean,
     val favorite: Boolean,
+    val watchCount: Int = 0,
 )
 
 data class TvProgram(
