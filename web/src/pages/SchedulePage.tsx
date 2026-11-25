@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { AlertTriangle, Plus, Trash2, XCircle } from 'lucide-react';
-import { api, formatTime, type Recording, type SeriesPass } from '../api/client';
+import {
+  api,
+  formatTime,
+  getRecordingScreenshotUrl,
+  getTitleScreenshotUrl,
+  type Recording,
+  type SeriesPass,
+} from '../api/client';
 import { playTivoRecordTone } from '../utils/tivoSounds';
 
 interface SchedulePageProps {
@@ -76,28 +83,38 @@ export function SchedulePage({
                   flexWrap: 'wrap',
                 }}
               >
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                    <span className="tivo-rec-badge">{rec.seriesPassId ? 'RR' : 'R'}</span>
-                    <span style={{ fontWeight: 600, fontSize: 14 }}>{rec.title}</span>
-                    {rec.episodeNum && <span className="pill pill-hd">{rec.episodeNum}</span>}
-                    {rec.status === 'conflict' && (
-                      <span className="pill pill-ad">
-                        <AlertTriangle size={11} /> Conflict
-                      </span>
-                    )}
-                    {rec.status === 'recording' && <span className="pill pill-live">Recording</span>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div className="show-thumb-inline" style={{ width: 96, height: 54 }}>
+                    <img
+                      src={getRecordingScreenshotUrl(rec)}
+                      alt={rec.title}
+                      className="show-shot-img"
+                      loading="lazy"
+                    />
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                    Ch {rec.channelNumber} {rec.channelName} ·{' '}
-                    {new Date(rec.scheduledStart).toLocaleDateString()} ·{' '}
-                    {formatTime(rec.scheduledStart)} – {formatTime(rec.scheduledEnd)}
-                  </div>
-                  {rec.errorMessage && (
-                    <div style={{ fontSize: 12, color: '#fcd34d', marginTop: 3 }}>
-                      {rec.errorMessage}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                      <span className="tivo-rec-badge">{rec.seriesPassId ? 'RR' : 'R'}</span>
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{rec.title}</span>
+                      {rec.episodeNum && <span className="pill pill-hd">{rec.episodeNum}</span>}
+                      {rec.status === 'conflict' && (
+                        <span className="pill pill-ad">
+                          <AlertTriangle size={11} /> Conflict
+                        </span>
+                      )}
+                      {rec.status === 'recording' && <span className="pill pill-live">Recording</span>}
                     </div>
-                  )}
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                      Ch {rec.channelNumber} {rec.channelName} ·{' '}
+                      {new Date(rec.scheduledStart).toLocaleDateString()} ·{' '}
+                      {formatTime(rec.scheduledStart)} – {formatTime(rec.scheduledEnd)}
+                    </div>
+                    {rec.errorMessage && (
+                      <div style={{ fontSize: 12, color: '#fcd34d', marginTop: 3 }}>
+                        {rec.errorMessage}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <button
@@ -175,7 +192,15 @@ export function SchedulePage({
                 flexWrap: 'wrap',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className="show-thumb-inline" style={{ width: 96, height: 54 }}>
+                  <img
+                    src={getTitleScreenshotUrl(pass.title, 'Drama', 'OnePass')}
+                    alt={pass.title}
+                    className="show-shot-img"
+                    loading="lazy"
+                  />
+                </div>
                 <span className="tivo-rec-badge">RR</span>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{pass.title}</div>

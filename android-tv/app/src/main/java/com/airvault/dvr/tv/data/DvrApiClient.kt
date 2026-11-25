@@ -191,6 +191,28 @@ class DvrApiClient(rawBaseUrl: String) {
     fun recordingStreamUrl(recordingId: String): String =
         "$baseUrl/api/recordings/$recordingId/stream"
 
+    fun recordingThumbnailUrl(recordingId: String): String =
+        "$baseUrl/api/recordings/$recordingId/thumbnail"
+
+    fun programScreenshotUrl(program: TvProgram, channel: TvChannel): String {
+        val raw = program.posterUrl
+        if (!raw.isNullOrBlank()) {
+            return if (raw.startsWith("http://") || raw.startsWith("https://")) raw else "$baseUrl$raw"
+        }
+        return titleScreenshotUrl(program.title, program.category, channel.network.ifBlank { channel.guideName }, program.episodeNum)
+    }
+
+    fun titleScreenshotUrl(
+        title: String,
+        category: String = "General",
+        network: String = "OTA",
+        episodeNum: String? = null,
+    ): String {
+        val enc = { v: String -> java.net.URLEncoder.encode(v, "UTF-8") }
+        val ep = if (!episodeNum.isNullOrBlank()) "&episode=${enc(episodeNum)}" else ""
+        return "$baseUrl/api/artwork?title=${enc(title)}&category=${enc(category)}&network=${enc(network)}$ep"
+    }
+
     private fun parseChannel(c: JSONObject) = TvChannel(
         id = c.getString("id"),
         guideNumber = c.getString("guideNumber"),
@@ -210,6 +232,7 @@ class DvrApiClient(rawBaseUrl: String) {
         endTime = p.getString("endTime"),
         category = p.optString("category", "General"),
         episodeNum = p.optString("episodeNum", "").takeIf { it.isNotBlank() && it != "null" },
+        posterUrl = p.optString("posterUrl", "").takeIf { it.isNotBlank() && it != "null" },
         isNew = p.optBoolean("isNew", false),
         isLive = p.optBoolean("isLive", false),
     )

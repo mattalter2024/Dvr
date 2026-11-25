@@ -16,6 +16,7 @@ import type { DvrScheduler } from '../dvr/scheduler.js';
 import type { DvrRecorder } from '../dvr/recorder.js';
 import { CommercialSkipService, serializeEdl } from '../dvr/commercialSkip.js';
 import type { HlsLiveManager } from '../streaming/hlsManager.js';
+import { renderShowScreenshotSvg } from '../media/showArtwork.js';
 import type { CommercialSegment, DvrSettings } from '../types/index.js';
 
 export interface ApiDeps {
@@ -509,14 +510,39 @@ export function createApiRouter(deps: ApiDeps): Router {
     }
   });
 
+  router.get('/artwork', (req, res) => {
+    const title = String(req.query.title ?? 'OTA Broadcast');
+    const category = String(req.query.category ?? 'General');
+    const network = String(req.query.network ?? 'OTA');
+    const episodeNum = req.query.episode ? String(req.query.episode) : null;
+    const svg = renderShowScreenshotSvg({ title, category, network, episodeNum });
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(svg);
+  });
+
   router.get('/recordings/:id/thumbnail', (req, res) => {
     const rec = db.getRecording(req.params.id);
-    if (!rec?.thumbnailPath || !fs.existsSync(rec.thumbnailPath)) {
+    if (!rec) {
       res.status(404).end();
       return;
     }
-    res.setHeader('Content-Type', 'image/jpeg');
-    fs.createReadStream(rec.thumbnailPath).pipe(res);
+    if (rec.thumbnailPath && fs.existsSync(rec.thumbnailPath)) {
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      fs.createReadStream(rec.thumbnailPath).pipe(res);
+      return;
+    }
+    const ch = db.getChannel(rec.channelId);
+    const svg = renderShowScreenshotSvg({
+      title: rec.title,
+      category: rec.category,
+      network: ch?.network || rec.channelName,
+      episodeNum: rec.episodeNum,
+    });
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(svg);
   });
 
   router.delete('/recordings/:id', (req, res) => {

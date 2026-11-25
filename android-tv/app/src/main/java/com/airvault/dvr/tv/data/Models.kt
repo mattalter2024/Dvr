@@ -25,6 +25,7 @@ data class TvProgram(
     val endTime: String,
     val category: String,
     val episodeNum: String?,
+    val posterUrl: String?,
     val isNew: Boolean,
     val isLive: Boolean,
 )

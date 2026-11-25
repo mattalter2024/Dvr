@@ -323,6 +323,8 @@ export function generateSamplePrograms(channels: Channel[], hoursAhead = 48): Pr
         .digest('hex')
         .slice(0, 16);
 
+      const posterUrl = `/api/artwork?title=${encodeURIComponent(tmpl.title)}&category=${encodeURIComponent(tmpl.category)}&network=${encodeURIComponent(ch.network || ch.guideName)}${epNumber ? `&episode=${encodeURIComponent(epNumber)}` : ''}`;
+
       programs.push({
         id: `prog-${hash}`,
         channelId: ch.id,
@@ -334,7 +336,7 @@ export function generateSamplePrograms(channels: Channel[], hoursAhead = 48): Pr
         category: tmpl.category,
         episodeNum: epNumber,
         seriesId: `series-${tmpl.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-        posterUrl: null,
+        posterUrl,
         isNew: Boolean(tmpl.isNew && slotIdx % 2 === 0),
         isLive: Boolean(tmpl.isLive),
         rating: tmpl.rating,

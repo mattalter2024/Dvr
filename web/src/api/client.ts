@@ -326,3 +326,28 @@ export function formatDuration(seconds: number): string {
   }
   return `${mins}:${String(secs).padStart(2, '0')}`;
 }
+
+export function getTitleScreenshotUrl(
+  title: string,
+  category = 'General',
+  network = 'OTA',
+  episodeNum?: string | null,
+): string {
+  const qs = new URLSearchParams({ title, category, network });
+  if (episodeNum) qs.set('episode', episodeNum);
+  return `/api/artwork?${qs.toString()}`;
+}
+
+export function getProgramScreenshotUrl(program: Program | null, channel: Channel): string {
+  if (program?.posterUrl) return program.posterUrl;
+  return getTitleScreenshotUrl(
+    program?.title ?? `${channel.guideName} Live`,
+    program?.category ?? 'General',
+    channel.network || channel.guideName,
+    program?.episodeNum,
+  );
+}
+
+export function getRecordingScreenshotUrl(recording: Recording): string {
+  return `/api/recordings/${encodeURIComponent(recording.id)}/thumbnail`;
+}

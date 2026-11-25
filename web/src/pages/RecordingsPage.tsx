@@ -9,7 +9,12 @@ import {
   Square,
   Trash2,
 } from 'lucide-react';
-import { api, formatDuration, type Recording } from '../api/client';
+import {
+  api,
+  formatDuration,
+  getRecordingScreenshotUrl,
+  type Recording,
+} from '../api/client';
 import { playTivoBackBoop, playTivoNavBloop, playTivoSelectChime } from '../utils/tivoSounds';
 
 interface RecordingsPageProps {
@@ -138,10 +143,23 @@ export function RecordingsPage({
 
     return (
       <div key={rec.id} className="myshows-row">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 260 }}>
-          <span className={`dot ${statusDot}`} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 280 }}>
+          <div className="show-thumb-inline" style={{ width: 124, height: 70 }}>
+            <img
+              src={getRecordingScreenshotUrl(rec)}
+              alt={rec.title}
+              className="show-shot-img"
+              loading="lazy"
+            />
+            {pct > 0 && (
+              <div className="show-shot-progress">
+                <div className="show-shot-progress-fill" style={{ width: `${pct}%` }} />
+              </div>
+            )}
+          </div>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span className={`dot ${statusDot}`} />
               <span style={{ fontSize: 15, fontWeight: 600 }}>{rec.title}</span>
               {rec.episodeNum && <span className="pill pill-hd">{rec.episodeNum}</span>}
               {rec.commercialCount > 0 && (
@@ -157,12 +175,6 @@ export function RecordingsPage({
               {formatBytes(rec.fileSizeBytes)} ·{' '}
               {new Date(rec.scheduledStart).toLocaleDateString()}
             </div>
-
-            {pct > 0 && (
-              <div className="progress-bar-bg" style={{ maxWidth: 220, marginTop: 6 }}>
-                <div className="progress-bar-fill" style={{ width: `${pct}%` }} />
-              </div>
-            )}
           </div>
         </div>
 
@@ -300,15 +312,23 @@ export function RecordingsPage({
                     setOpenSeriesTitle(title);
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Folder size={18} color="var(--accent)" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div className="show-thumb-inline" style={{ width: 124, height: 70 }}>
+                      <img
+                        src={getRecordingScreenshotUrl(episodes[0])}
+                        alt={title}
+                        className="show-shot-img"
+                        loading="lazy"
+                      />
+                    </div>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Folder size={15} color="var(--accent)" />
                         <span style={{ fontSize: 15, fontWeight: 600 }}>{title}</span>
                         <span className="pill pill-hd">{episodes.length}</span>
                         {skipReadyCount > 0 && <span className="pill pill-skip">Skip</span>}
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
                         Latest: {new Date(episodes[0].scheduledStart).toLocaleDateString()} · Ch{' '}
                         {episodes[0].channelNumber}
                       </div>

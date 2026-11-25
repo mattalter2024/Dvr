@@ -1,7 +1,9 @@
-import { CircleDot, Play, Tv } from 'lucide-react';
+import { CircleDot, Tv } from 'lucide-react';
 import {
   formatDuration,
   formatTime,
+  getProgramScreenshotUrl,
+  getRecordingScreenshotUrl,
   type Channel,
   type HealthResponse,
   type Program,
@@ -87,15 +89,30 @@ export function HomePage({
                   onPlayRecording(rec);
                 }}
               >
-                <div className="channel-badge-row">
-                  <span className="pill pill-live">Recording · {rec.channelNumber}</span>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {formatDuration(rec.durationSec)}
-                  </span>
+                <div className="show-shot-wrap">
+                  <img
+                    src={getRecordingScreenshotUrl(rec)}
+                    alt={rec.title}
+                    className="show-shot-img"
+                    loading="lazy"
+                  />
+                  <div className="show-shot-overlay">
+                    <span className="pill pill-live" style={{ background: 'rgba(127, 29, 29, 0.85)' }}>
+                      Recording · {rec.channelNumber}
+                    </span>
+                    <span
+                      className="pill"
+                      style={{ background: 'rgba(7, 11, 20, 0.78)', color: '#cbd5e1' }}
+                    >
+                      {formatDuration(rec.durationSec)}
+                    </span>
+                  </div>
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>{rec.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                  Watch from start
+                <div className="channel-card-body">
+                  <div style={{ fontSize: 15, fontWeight: 600 }}>{rec.title}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    Watch from start
+                  </div>
                 </div>
               </button>
             ))}
@@ -129,33 +146,42 @@ export function HomePage({
                     onPlayRecording(rec);
                   }}
                 >
-                  <div className="channel-badge-row">
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 7,
-                        fontSize: 12,
-                        color: 'var(--text-secondary)',
-                      }}
-                    >
-                      <span className={`dot ${statusDotClass}`} />
-                      {rec.channelNumber} {rec.channelName}
-                    </span>
-                    {rec.commercialCount > 0 && (
-                      <span className="pill pill-skip">Skip ({rec.commercialCount})</span>
+                  <div className="show-shot-wrap">
+                    <img
+                      src={getRecordingScreenshotUrl(rec)}
+                      alt={rec.title}
+                      className="show-shot-img"
+                      loading="lazy"
+                    />
+                    <div className="show-shot-overlay">
+                      <span
+                        className="pill"
+                        style={{ background: 'rgba(7, 11, 20, 0.78)', color: '#e2e8f0' }}
+                      >
+                        <span className={`dot ${statusDotClass}`} /> {rec.channelNumber}
+                      </span>
+                      {rec.commercialCount > 0 && (
+                        <span
+                          className="pill pill-skip"
+                          style={{ background: 'rgba(6, 78, 59, 0.85)' }}
+                        >
+                          Skip ({rec.commercialCount})
+                        </span>
+                      )}
+                    </div>
+                    {pct > 0 && (
+                      <div className="show-shot-progress">
+                        <div className="show-shot-progress-fill" style={{ width: `${pct}%` }} />
+                      </div>
                     )}
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 600 }}>{rec.title}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {rec.episodeNum ? `${rec.episodeNum} · ` : ''}
-                    {formatDuration(rec.durationSec)}
-                  </div>
-                  {pct > 0 && (
-                    <div className="progress-bar-bg">
-                      <div className="progress-bar-fill" style={{ width: `${pct}%` }} />
+                  <div className="channel-card-body">
+                    <div style={{ fontSize: 15, fontWeight: 600 }}>{rec.title}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      {rec.episodeNum ? `${rec.episodeNum} · ` : ''}
+                      {formatDuration(rec.durationSec)} · {rec.channelName}
                     </div>
-                  )}
+                  </div>
                 </button>
               );
             })}
@@ -176,16 +202,30 @@ export function HomePage({
                 onWatchLive(channel);
               }}
             >
-              <div className="channel-badge-row">
-                <div>
-                  <span className="channel-num">{channel.guideNumber}</span>{' '}
-                  <span className="channel-name">{channel.guideName}</span>
+              <div className="show-shot-wrap">
+                <img
+                  src={getProgramScreenshotUrl(current, channel)}
+                  alt={current?.title ?? channel.guideName}
+                  className="show-shot-img"
+                  loading="lazy"
+                />
+                <div className="show-shot-overlay">
+                  <span
+                    className="pill"
+                    style={{ background: 'rgba(7, 11, 20, 0.78)', color: '#e2e8f0' }}
+                  >
+                    {channel.guideNumber} {channel.guideName}
+                  </span>
+                  {current?.isLive && (
+                    <span className="pill pill-live" style={{ background: 'rgba(127, 29, 29, 0.85)' }}>
+                      Live
+                    </span>
+                  )}
                 </div>
-                {current?.isLive && <span className="pill pill-live">Live</span>}
               </div>
 
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 2 }}>
+              <div className="channel-card-body">
+                <div style={{ fontSize: 15, fontWeight: 600 }}>
                   {current?.title ?? 'Live OTA Broadcast'}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
@@ -193,13 +233,12 @@ export function HomePage({
                     ? `${formatTime(current.startTime)} – ${formatTime(current.endTime)}`
                     : channel.network}
                 </div>
+                {next && (
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    Next: {next.title}
+                  </div>
+                )}
               </div>
-
-              {next && (
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  Next: {next.title}
-                </div>
-              )}
             </button>
           ))}
         </div>
@@ -214,17 +253,38 @@ export function HomePage({
               <div
                 key={rec.id}
                 className="card"
-                style={{ display: 'flex', flexDirection: 'column', gap: 5, padding: 15 }}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                    Ch {rec.channelNumber} · {formatTime(rec.scheduledStart)}
-                  </span>
-                  <span className={rec.status === 'conflict' ? 'pill pill-ad' : 'tivo-rec-badge'}>
-                    {rec.status === 'conflict' ? 'Conflict' : rec.seriesPassId ? 'RR' : 'R'}
-                  </span>
+                <div className="show-thumb-inline" style={{ width: 92, height: 52 }}>
+                  <img
+                    src={getRecordingScreenshotUrl(rec)}
+                    alt={rec.title}
+                    className="show-shot-img"
+                    loading="lazy"
+                  />
                 </div>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{rec.title}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                      Ch {rec.channelNumber} · {formatTime(rec.scheduledStart)}
+                    </span>
+                    <span className={rec.status === 'conflict' ? 'pill pill-ad' : 'tivo-rec-badge'}>
+                      {rec.status === 'conflict' ? 'Conflict' : rec.seriesPassId ? 'RR' : 'R'}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      fontSize: 14,
+                      marginTop: 2,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {rec.title}
+                  </div>
+                </div>
               </div>
             ))}
           </div>

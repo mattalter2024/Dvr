@@ -9,7 +9,13 @@ import {
   Search,
   Star,
 } from 'lucide-react';
-import { api, formatTime, type Channel, type Program } from '../api/client';
+import {
+  api,
+  formatTime,
+  getProgramScreenshotUrl,
+  type Channel,
+  type Program,
+} from '../api/client';
 import { ProgramModal } from '../components/ProgramModal';
 import { playTivoNavBloop, playTivoRecordTone, playTivoSelectChime } from '../utils/tivoSounds';
 
@@ -174,10 +180,18 @@ export function GuidePage({
         </div>
       </div>
 
-      {/* Top Program Synopsis Bar */}
+      {/* Top Program Synopsis Bar with 16:9 Show Screenshot */}
       {focused && (
         <div className="tivo-guide-synopsis">
-          <div style={{ flex: 1, minWidth: 260 }}>
+          <div className="show-thumb-inline" style={{ width: 176, height: 99 }}>
+            <img
+              src={getProgramScreenshotUrl(focused.program, focused.channel)}
+              alt={focused.program.title}
+              className="show-shot-img"
+            />
+          </div>
+
+          <div style={{ flex: 1, minWidth: 240 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 600, color: 'var(--accent)', fontSize: 13 }}>
                 {focused.channel.guideNumber} {focused.channel.guideName}
@@ -334,7 +348,14 @@ export function GuidePage({
                         className={`epg-cell ${airingNow ? 'airing-now' : ''} ${
                           recInfo ? 'has-rec' : ''
                         } ${isHighlighted ? 'highlighted' : ''}`}
-                        style={{ left, width }}
+                        style={{
+                          left,
+                          width,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'flex-start',
+                          gap: 9,
+                        }}
                         onMouseEnter={() => setFocused({ channel, program: prog })}
                         onFocus={() => {
                           playTivoNavBloop();
@@ -345,38 +366,50 @@ export function GuidePage({
                           setModalSelection({ channel, program: prog });
                         }}
                       >
-                        <div
-                          style={{
-                            fontWeight: 600,
-                            fontSize: 13,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            width: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 5,
-                          }}
-                        >
-                          {recInfo && <span className="tivo-rec-badge">R</span>}
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {prog.title}
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            fontSize: 11,
-                            color: 'var(--text-muted)',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          <span>{prog.category}</span>
-                          {prog.episodeNum && <span>· {prog.episodeNum}</span>}
-                          {prog.isNew && <span style={{ color: '#93c5fd' }}>New</span>}
+                        {width >= 150 && (
+                          <div className="show-thumb-inline" style={{ width: 64, height: 36 }}>
+                            <img
+                              src={getProgramScreenshotUrl(prog, channel)}
+                              alt=""
+                              className="show-shot-img"
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
+                        <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              fontSize: 13,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              width: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 5,
+                            }}
+                          >
+                            {recInfo && <span className="tivo-rec-badge">R</span>}
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {prog.title}
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              fontSize: 11,
+                              color: 'var(--text-muted)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <span>{prog.category}</span>
+                            {prog.episodeNum && <span>· {prog.episodeNum}</span>}
+                            {prog.isNew && <span style={{ color: '#93c5fd' }}>New</span>}
+                          </div>
                         </div>
                       </button>
                     );

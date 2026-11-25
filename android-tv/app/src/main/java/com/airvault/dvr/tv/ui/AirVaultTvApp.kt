@@ -15,13 +15,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
 import com.airvault.dvr.tv.data.*
 import kotlinx.coroutines.launch
 
@@ -30,16 +35,38 @@ private val TivoBgDeep = Color(0xFF0B101B)
 private val TivoBgRail = Color(0xFF0E1422)
 private val TivoPanel = Color(0xFF121A29)
 private val TivoCard = Color(0xFF172133)
-private val TivoGold = Color(0xFF60A5FA)
+private val TivoAccent = Color(0xFF60A5FA)
 private val TivoSkipGreen = Color(0xFF34D399)
 private val TivoRecRed = Color(0xFFEF4444)
-private val TivoCyan = Color(0xFF93C5FD)
+private val TivoMuted = Color(0xFF98A6BD)
 
 private enum class TvSection(val label: String) {
     MY_SHOWS("My Shows"),
-    GUIDE("Live TV Guide"),
+    GUIDE("Guide"),
     TODO("To Do & OnePass"),
-    SERVER("Server Setup"),
+    SERVER("Settings"),
+}
+
+@Composable
+private fun ShowScreenshot(
+    url: String,
+    contentDescription: String,
+    imageLoader: ImageLoader,
+    width: Dp,
+    height: Dp,
+    modifier: Modifier = Modifier,
+) {
+    AsyncImage(
+        model = url,
+        imageLoader = imageLoader,
+        contentDescription = contentDescription,
+        contentScale = ContentScale.Crop,
+        modifier = modifier
+            .size(width = width, height = height)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF080C15))
+            .border(1.dp, Color(0x18FFFFFF), RoundedCornerShape(8.dp)),
+    )
 }
 
 @Composable
@@ -48,8 +75,15 @@ fun AirVaultTvApp() {
     val prefs = remember { context.getSharedPreferences("airvault_tv", Context.MODE_PRIVATE) }
     val scope = rememberCoroutineScope()
 
+    val imageLoader = remember(context) {
+        ImageLoader.Builder(context)
+            .components { add(SvgDecoder.Factory()) }
+            .crossfade(true)
+            .build()
+    }
+
     var serverUrl by remember { mutableStateOf(prefs.getString("server_url", null)) }
-    var serverName by remember { mutableStateOf("AirVault Home DVR") }
+    var serverName by remember { mutableStateOf("AirVault DVR") }
     var activeSection by remember { mutableStateOf(TvSection.MY_SHOWS) }
     var playbackRequest by remember { mutableStateOf<TvPlaybackRequest?>(null) }
 
@@ -86,7 +120,7 @@ fun AirVaultTvApp() {
 
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = TivoGold,
+            primary = TivoAccent,
             background = TivoBgDeep,
             surface = TivoPanel,
             onBackground = Color.White,
@@ -123,39 +157,41 @@ fun AirVaultTvApp() {
                 .fillMaxSize()
                 .background(TivoBgDeep),
         ) {
-            // Classic TiVo Central Left Navigation Rail
+            // Restrained Left Navigation Rail
             Column(
                 modifier = Modifier
-                    .width(236.dp)
+                    .width(216.dp)
                     .fillMaxHeight()
                     .background(TivoBgRail)
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text("AirVault", fontSize = 25.sp, fontWeight = FontWeight.Black, color = Color.White)
+                Text("AirVault", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Text(
-                    "TiVo Central · $serverName",
+                    serverName,
                     fontSize = 12.sp,
-                    color = TivoGold,
-                    fontWeight = FontWeight.Bold,
+                    color = TivoMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(14.dp))
 
                 TvSection.entries.forEach { section ->
                     val isSelected = section == activeSection
                     Button(
                         onClick = { activeSection = section },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(999.dp),
+                        shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isSelected) Color(0xFF1D4ED8) else Color.Transparent,
-                            contentColor = if (isSelected) Color.White else Color(0xFFB6C9E8),
+                            containerColor = if (isSelected) Color(0x2660A5FA) else Color.Transparent,
+                            contentColor = if (isSelected) Color.White else TivoMuted,
                         ),
-                        border = if (isSelected) BorderStroke(2.dp, TivoGold) else null,
                     ) {
-                        Text(section.label, modifier = Modifier.fillMaxWidth(), fontWeight = FontWeight.Bold)
+                        Text(
+                            section.label,
+                            modifier = Modifier.fillMaxWidth(),
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                        )
                     }
                 }
 
@@ -163,10 +199,10 @@ fun AirVaultTvApp() {
                 Button(
                     onClick = { scope.launch { refreshData(api) } },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(999.dp),
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = TivoCard),
                 ) {
-                    Text("Refresh DVR", fontWeight = FontWeight.Bold)
+                    Text("Refresh")
                 }
             }
 
@@ -180,13 +216,15 @@ fun AirVaultTvApp() {
                 when (activeSection) {
                     TvSection.MY_SHOWS -> {
                         MyShowsTvView(
+                            api = api,
+                            imageLoader = imageLoader,
                             recordings = recordings.filter { it.status == "completed" || it.status == "recording" },
                             onPlay = { rec -> playbackRequest = TvPlaybackRequest.Recording(rec) },
                             onScanCommercials = { rec ->
                                 scope.launch {
                                     runCatching { api.scanCommercials(rec.id) }
                                         .onSuccess { count ->
-                                            showBanner("SkipMode™ ready: $count ad break(s) tagged")
+                                            showBanner("Commercial scan complete: $count ad break(s)")
                                             refreshData(api)
                                         }
                                 }
@@ -196,6 +234,8 @@ fun AirVaultTvApp() {
 
                     TvSection.GUIDE -> {
                         GuideTvView(
+                            api = api,
+                            imageLoader = imageLoader,
                             rows = guideRows,
                             onWatchChannel = { ch -> playbackRequest = TvPlaybackRequest.Live(ch) },
                             onSelectProgram = { ch, prog -> selectedProgram = ch to prog },
@@ -204,6 +244,8 @@ fun AirVaultTvApp() {
 
                     TvSection.TODO -> {
                         ScheduleTvView(
+                            api = api,
+                            imageLoader = imageLoader,
                             upcoming = recordings.filter {
                                 it.status == "scheduled" || it.status == "conflict" || it.status == "recording"
                             },
@@ -212,19 +254,19 @@ fun AirVaultTvApp() {
                     }
 
                     TvSection.SERVER -> {
-                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Text("Connected DVR Server", fontSize = 26.sp, fontWeight = FontWeight.Black)
-                            Text("Server: $serverName", color = Color(0xFFB6C9E8), fontSize = 16.sp)
-                            Text("URL: ${api.baseUrl}", color = TivoGold, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Text("Server Settings", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                            Text("Server: $serverName", color = TivoMuted, fontSize = 15.sp)
+                            Text("URL: ${api.baseUrl}", color = TivoAccent, fontSize = 15.sp)
                             Button(
                                 onClick = {
                                     prefs.edit().remove("server_url").apply()
                                     serverUrl = null
                                 },
-                                shape = RoundedCornerShape(999.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = TivoRecRed),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = TivoCard),
                             ) {
-                                Text("Switch DVR Server", fontWeight = FontWeight.Bold)
+                                Text("Switch DVR Server")
                             }
                         }
                     }
@@ -234,32 +276,43 @@ fun AirVaultTvApp() {
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .background(Color(0xEE0F2961), RoundedCornerShape(14.dp))
-                            .border(2.dp, TivoGold, RoundedCornerShape(14.dp))
-                            .padding(horizontal = 18.dp, vertical = 12.dp),
+                            .background(TivoCard, RoundedCornerShape(10.dp))
+                            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                     ) {
-                        Text(msg, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(msg, color = Color.White, fontSize = 14.sp)
                     }
                 }
             }
         }
 
-        // Program Action Dialog (Watch Live / Record (R) / OnePass (RR))
+        // Program Action Dialog with 16:9 Show Screenshot
         selectedProgram?.let { (channel, program) ->
             AlertDialog(
                 onDismissRequest = { selectedProgram = null },
                 containerColor = TivoPanel,
                 title = {
-                    Column {
-                        Text("${channel.guideNumber} ${channel.guideName}", color = TivoGold, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text(program.title, fontWeight = FontWeight.Black, fontSize = 22.sp)
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        AsyncImage(
+                            model = api.programScreenshotUrl(program, channel),
+                            imageLoader = imageLoader,
+                            contentDescription = program.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF080C15)),
+                        )
+                        Text("${channel.guideNumber} ${channel.guideName}", color = TivoAccent, fontSize = 13.sp)
+                        Text(program.title, fontWeight = FontWeight.Bold, fontSize = 20.sp)
                     }
                 },
                 text = {
                     Text(
                         program.description ?: "Over-the-air broadcast program.",
-                        color = Color(0xFFDBEAFE),
-                        fontSize = 15.sp,
+                        color = TivoMuted,
+                        fontSize = 14.sp,
                     )
                 },
                 confirmButton = {
@@ -269,8 +322,8 @@ fun AirVaultTvApp() {
                                 selectedProgram = null
                                 playbackRequest = TvPlaybackRequest.Live(channel)
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1D4ED8)),
-                        ) { Text("Watch Live", color = Color.White, fontWeight = FontWeight.Bold) }
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                        ) { Text("Watch Live", color = Color.White) }
 
                         Button(
                             onClick = {
@@ -278,13 +331,13 @@ fun AirVaultTvApp() {
                                 scope.launch {
                                     runCatching { api.scheduleProgram(program.id) }
                                         .onSuccess {
-                                            showBanner("Added to To Do List: \"${program.title}\"")
+                                            showBanner("Scheduled \"${program.title}\"")
                                             refreshData(api)
                                         }
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = TivoRecRed),
-                        ) { Text("Record (R)", fontWeight = FontWeight.Bold) }
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0x33EF4444), contentColor = Color(0xFFFCA5A5)),
+                        ) { Text("Record") }
 
                         Button(
                             onClick = {
@@ -292,13 +345,13 @@ fun AirVaultTvApp() {
                                 scope.launch {
                                     runCatching { api.createSeriesPass(program.title, channel.id, newOnly = true) }
                                         .onSuccess {
-                                            showBanner("OnePass™ created for \"${program.title}\"")
+                                            showBanner("OnePass created for \"${program.title}\"")
                                             refreshData(api)
                                         }
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = TivoGold, contentColor = Color.Black),
-                        ) { Text("OnePass (RR)", fontWeight = FontWeight.Black) }
+                            colors = ButtonDefaults.buttonColors(containerColor = TivoCard),
+                        ) { Text("OnePass") }
                     }
                 },
             )
@@ -328,31 +381,31 @@ private fun ServerConnectScreen(onConnected: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF0A2257), TivoBgDeep)))
+            .background(TivoBgDeep)
             .padding(48.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Text("AirVault — TiVo-Style Whole-House DVR", fontSize = 32.sp, fontWeight = FontWeight.Black, color = Color.White)
+        Text("AirVault DVR", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Text(
             if (scanning) "Scanning your home Wi-Fi for AirVault DVR servers..."
             else "Select your home DVR server or enter its LAN address:",
-            color = Color(0xFFB6C9E8),
-            fontSize = 16.sp,
+            color = TivoMuted,
+            fontSize = 15.sp,
         )
 
         if (discovered.isNotEmpty()) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 items(discovered) { server ->
                     Button(
                         onClick = { onConnected(server.baseUrl) },
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = TivoCard),
-                        border = BorderStroke(2.dp, TivoGold),
-                        modifier = Modifier.height(92.dp),
+                        border = BorderStroke(1.dp, TivoAccent),
+                        modifier = Modifier.height(84.dp),
                     ) {
-                        Column(Modifier.padding(horizontal = 12.dp)) {
-                            Text(server.serverName, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                            Text(server.baseUrl, fontSize = 13.sp, color = TivoGold)
+                        Column(Modifier.padding(horizontal = 10.dp)) {
+                            Text(server.serverName, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                            Text(server.baseUrl, fontSize = 13.sp, color = TivoAccent)
                         }
                     }
                 }
@@ -360,7 +413,7 @@ private fun ServerConnectScreen(onConnected: (String) -> Unit) {
         }
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             OutlinedTextField(
@@ -368,7 +421,7 @@ private fun ServerConnectScreen(onConnected: (String) -> Unit) {
                 onValueChange = { manualIp = it },
                 label = { Text("DVR Server URL") },
                 singleLine = true,
-                modifier = Modifier.width(360.dp),
+                modifier = Modifier.width(340.dp),
             )
             Button(
                 onClick = {
@@ -378,9 +431,9 @@ private fun ServerConnectScreen(onConnected: (String) -> Unit) {
                             .onFailure { errorMsg = "Unable to connect: ${it.message}" }
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = TivoGold, contentColor = Color.Black),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
             ) {
-                Text("Connect", fontWeight = FontWeight.Black)
+                Text("Connect", color = Color.White)
             }
             Button(
                 onClick = { scan() },
@@ -396,6 +449,8 @@ private fun ServerConnectScreen(onConnected: (String) -> Unit) {
 
 @Composable
 private fun GuideTvView(
+    api: DvrApiClient,
+    imageLoader: ImageLoader,
     rows: List<GuideRow>,
     onWatchChannel: (TvChannel) -> Unit,
     onSelectProgram: (TvChannel, TvProgram) -> Unit,
@@ -407,57 +462,67 @@ private fun GuideTvView(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Live TV Guide", fontSize = 26.sp, fontWeight = FontWeight.Black)
+        Text("Guide", fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
-        // Signature TiVo Top Synopsis Banner
+        // Top Program Synopsis Banner with 16:9 Show Screenshot
         highlighted?.let { (ch, prog) ->
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(TivoPanel, RoundedCornerShape(16.dp))
-                    .border(1.dp, TivoGold, RoundedCornerShape(16.dp))
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                    .background(TivoPanel, RoundedCornerShape(14.dp))
+                    .border(1.dp, Color(0x1EFFFFFF), RoundedCornerShape(14.dp))
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    "${ch.guideNumber} ${ch.guideName}  •  ${prog.category}${prog.episodeNum?.let { " · $it" } ?: ""}",
-                    color = TivoGold,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
+                ShowScreenshot(
+                    url = api.programScreenshotUrl(prog, ch),
+                    contentDescription = prog.title,
+                    imageLoader = imageLoader,
+                    width = 160.dp,
+                    height = 90.dp,
                 )
-                Text(prog.title, fontSize = 20.sp, fontWeight = FontWeight.Black, color = Color.White)
-                Text(
-                    prog.description ?: "Over-the-air broadcast television program.",
-                    color = Color(0xFFB6C9E8),
-                    fontSize = 13.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        "${ch.guideNumber} ${ch.guideName}  ·  ${prog.category}${prog.episodeNum?.let { " · $it" } ?: ""}",
+                        color = TivoAccent,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(prog.title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(
+                        prog.description ?: "Over-the-air broadcast television program.",
+                        color = TivoMuted,
+                        fontSize = 13.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(rows, key = { it.channel.id }) { row ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Surface(
                         color = TivoPanel,
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color(0x5593C5FD)),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Color(0x18FFFFFF)),
                         modifier = Modifier
-                            .width(156.dp)
-                            .height(74.dp)
+                            .width(146.dp)
+                            .height(68.dp)
                             .clickable { onWatchChannel(row.channel) },
                     ) {
                         Column(
-                            modifier = Modifier.padding(12.dp),
+                            modifier = Modifier.padding(10.dp),
                             verticalArrangement = Arrangement.Center,
                         ) {
-                            Text(row.channel.guideNumber, color = TivoGold, fontWeight = FontWeight.Black, fontSize = 18.sp)
-                            Text(row.channel.guideName, color = Color(0xFFDBEAFE), fontSize = 13.sp, maxLines = 1)
+                            Text(row.channel.guideNumber, color = TivoAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(row.channel.guideName, color = TivoMuted, fontSize = 12.sp, maxLines = 1)
                         }
                     }
 
@@ -465,36 +530,46 @@ private fun GuideTvView(
                         items(row.programs.take(8), key = { it.id }) { prog ->
                             val isCurrentHighlight = highlighted?.second?.id == prog.id
                             Surface(
-                                color = if (isCurrentHighlight) Color(0xFF1D4ED8) else TivoCard,
-                                shape = RoundedCornerShape(12.dp),
-                                border = if (isCurrentHighlight) BorderStroke(2.dp, TivoGold) else null,
+                                color = if (isCurrentHighlight) Color(0xFF1D2A40) else TivoCard,
+                                shape = RoundedCornerShape(10.dp),
+                                border = if (isCurrentHighlight) BorderStroke(1.5.dp, TivoAccent) else null,
                                 modifier = Modifier
-                                    .width(236.dp)
-                                    .height(74.dp)
+                                    .width(248.dp)
+                                    .height(68.dp)
                                     .clickable {
                                         highlighted = row.channel to prog
                                         onSelectProgram(row.channel, prog)
                                     },
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalArrangement = Arrangement.Center,
+                                Row(
+                                    modifier = Modifier.padding(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text(
-                                        prog.title,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
+                                    ShowScreenshot(
+                                        url = api.programScreenshotUrl(prog, row.channel),
+                                        contentDescription = prog.title,
+                                        imageLoader = imageLoader,
+                                        width = 72.dp,
+                                        height = 41.dp,
                                     )
-                                    Text(
-                                        listOfNotNull(prog.category, prog.episodeNum, if (prog.isNew) "NEW" else null)
-                                            .joinToString(" · "),
-                                        color = Color(0xFFB6C9E8),
-                                        fontSize = 12.sp,
-                                        maxLines = 1,
-                                    )
+                                    Column(verticalArrangement = Arrangement.Center) {
+                                        Text(
+                                            prog.title,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 13.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Text(
+                                            listOfNotNull(prog.category, prog.episodeNum)
+                                                .joinToString(" · "),
+                                            color = TivoMuted,
+                                            fontSize = 11.sp,
+                                            maxLines = 1,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -507,17 +582,19 @@ private fun GuideTvView(
 
 @Composable
 private fun MyShowsTvView(
+    api: DvrApiClient,
+    imageLoader: ImageLoader,
     recordings: List<DvrRecording>,
     onPlay: (DvrRecording) -> Unit,
     onScanCommercials: (DvrRecording) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("My Shows (SkipMode™ Ready)", fontSize = 26.sp, fontWeight = FontWeight.Black)
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("My Shows", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         if (recordings.isEmpty()) {
             Text(
-                "No recordings yet. Select any program in the Live TV Guide to record it.",
-                color = Color(0xFFB6C9E8),
-                fontSize = 16.sp,
+                "No recordings yet. Select any program in the Guide to record it.",
+                color = TivoMuted,
+                fontSize = 15.sp,
             )
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -525,9 +602,9 @@ private fun MyShowsTvView(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(TivoCard, RoundedCornerShape(14.dp))
-                            .border(1.dp, Color(0x4493C5FD), RoundedCornerShape(14.dp))
-                            .padding(16.dp),
+                            .background(TivoPanel, RoundedCornerShape(12.dp))
+                            .border(1.dp, Color(0x16FFFFFF), RoundedCornerShape(12.dp))
+                            .padding(12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -536,62 +613,61 @@ private fun MyShowsTvView(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp),
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(12.dp)
-                                    .background(
-                                        if (rec.status == "recording") TivoRecRed else TivoSkipGreen,
-                                        CircleShape,
-                                    ),
+                            ShowScreenshot(
+                                url = api.recordingThumbnailUrl(rec.id),
+                                contentDescription = rec.title,
+                                imageLoader = imageLoader,
+                                width = 124.dp,
+                                height = 70.dp,
                             )
-                            Column {
+                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text(
-                                        "CH ${rec.channelNumber} ${rec.channelName}",
-                                        color = TivoGold,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .background(
+                                                if (rec.status == "recording") TivoRecRed else TivoSkipGreen,
+                                                CircleShape,
+                                            ),
                                     )
+                                    Text(rec.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                                     if (rec.commercialCount > 0) {
                                         Text(
-                                            "SKIP (${rec.commercialCount} ads)",
-                                            color = Color(0xFF032212),
+                                            "Skip (${rec.commercialCount})",
+                                            color = TivoSkipGreen,
                                             fontSize = 11.sp,
-                                            fontWeight = FontWeight.Black,
+                                            fontWeight = FontWeight.SemiBold,
                                             modifier = Modifier
-                                                .background(TivoSkipGreen, RoundedCornerShape(999.dp))
-                                                .padding(horizontal = 8.dp, vertical = 2.dp),
+                                                .background(Color(0x2234D399), RoundedCornerShape(5.dp))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp),
                                         )
                                     }
                                 }
-                                Text(rec.title, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                                rec.subtitle?.let {
-                                    Text(it, color = Color(0xFFB6C9E8), fontSize = 13.sp)
-                                }
+                                Text(
+                                    "Ch ${rec.channelNumber} ${rec.channelName}${rec.subtitle?.let { " · $it" } ?: ""}",
+                                    color = TivoMuted,
+                                    fontSize = 12.sp,
+                                )
                             }
                         }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
                                 onClick = { onPlay(rec) },
-                                shape = RoundedCornerShape(999.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1D4ED8)),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
                             ) {
-                                Text(
-                                    if (rec.watchedPositionSec > 5) "Resume" else "Watch",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                )
+                                Text(if (rec.watchedPositionSec > 5) "Resume" else "Watch", color = Color.White)
                             }
                             Button(
                                 onClick = { onScanCommercials(rec) },
-                                shape = RoundedCornerShape(999.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF78350F)),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = TivoCard),
                             ) {
-                                Text("Scan Ads", color = TivoGold, fontWeight = FontWeight.Bold)
+                                Text("Scan Ads")
                             }
                         }
                     }
@@ -602,51 +678,80 @@ private fun MyShowsTvView(
 }
 
 @Composable
-private fun ScheduleTvView(upcoming: List<DvrRecording>, passes: List<SeriesPass>) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { Text("To Do List (${upcoming.size})", fontSize = 24.sp, fontWeight = FontWeight.Black) }
+private fun ScheduleTvView(
+    api: DvrApiClient,
+    imageLoader: ImageLoader,
+    upcoming: List<DvrRecording>,
+    passes: List<SeriesPass>,
+) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { Text("To Do List (${upcoming.size})", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
         items(upcoming, key = { it.id }) { rec ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(TivoCard, RoundedCornerShape(14.dp))
-                    .padding(16.dp),
+                    .background(TivoPanel, RoundedCornerShape(12.dp))
+                    .padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column {
-                    Text(rec.title, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
-                    Text("CH ${rec.channelNumber} ${rec.channelName}", color = Color(0xFFB6C9E8), fontSize = 13.sp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ShowScreenshot(
+                        url = api.recordingThumbnailUrl(rec.id),
+                        contentDescription = rec.title,
+                        imageLoader = imageLoader,
+                        width = 96.dp,
+                        height = 54.dp,
+                    )
+                    Column {
+                        Text(rec.title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        Text("Ch ${rec.channelNumber} ${rec.channelName}", color = TivoMuted, fontSize = 12.sp)
+                    }
                 }
                 Text(
-                    if (rec.status == "conflict") "CONFLICT" else "R",
+                    if (rec.status == "conflict") "Conflict" else "R",
                     color = Color.White,
-                    fontWeight = FontWeight.Black,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
                     modifier = Modifier
-                        .background(if (rec.status == "conflict") Color(0xFFD97706) else TivoRecRed, RoundedCornerShape(6.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                        .background(if (rec.status == "conflict") Color(0xFFD97706) else TivoRecRed, RoundedCornerShape(5.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
                 )
             }
         }
         item {
-            Spacer(Modifier.height(8.dp))
-            Text("OnePass™ Manager (${passes.size})", fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(6.dp))
+            Text("OnePass Manager (${passes.size})", fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
         items(passes, key = { it.id }) { pass ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(TivoPanel, RoundedCornerShape(14.dp))
-                    .padding(16.dp),
+                    .background(TivoPanel, RoundedCornerShape(12.dp))
+                    .padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("RR  ${pass.title}", fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ShowScreenshot(
+                        url = api.titleScreenshotUrl(pass.title, "Drama", "OnePass"),
+                        contentDescription = pass.title,
+                        imageLoader = imageLoader,
+                        width = 96.dp,
+                        height = 54.dp,
+                    )
+                    Text("RR  ${pass.title}", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                }
                 Text(
-                    if (pass.newOnly) "New Episodes Only" else "New & Reruns",
-                    color = TivoCyan,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
+                    if (pass.newOnly) "New Only" else "New & Reruns",
+                    color = TivoMuted,
+                    fontSize = 12.sp,
                 )
             }
         }

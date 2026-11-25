@@ -370,10 +370,9 @@ select {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  padding: 15px 16px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 8px;
   text-align: left;
   transition: background 0.14s, border-color 0.14s;
 }
@@ -382,6 +381,64 @@ select {
 .channel-card:focus-visible {
   background: var(--bg-elevated);
   border-color: var(--border-strong);
+}
+
+.show-shot-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #080c15;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.show-shot-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.show-shot-overlay {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.show-shot-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.show-shot-progress-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.channel-card-body {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.show-thumb-inline {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 7px;
+  overflow: hidden;
+  background: #080c15;
+  border: 1px solid var(--border-subtle);
 }
 
 .channel-badge-row {

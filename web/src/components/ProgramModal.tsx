@@ -1,5 +1,10 @@
 import { CircleDot, Play, Repeat, X } from 'lucide-react';
-import { formatTime, type Channel, type Program } from '../api/client';
+import {
+  formatTime,
+  getProgramScreenshotUrl,
+  type Channel,
+  type Program,
+} from '../api/client';
 
 interface ProgramModalProps {
   channel: Channel;
@@ -22,84 +27,106 @@ export function ProgramModal({
 }: ProgramModalProps) {
   const now = Date.now();
   const isAiringNow = Date.parse(program.startTime) <= now && Date.parse(program.endTime) > now;
+  const shotUrl = getProgramScreenshotUrl(program, channel);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-              <span className="pill pill-hd">
+      <div
+        className="modal-card"
+        style={{ padding: 0, overflow: 'hidden', gap: 0 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="show-shot-wrap" style={{ maxHeight: 240 }}>
+          <img src={shotUrl} alt={program.title} className="show-shot-img" />
+          <div className="show-shot-overlay">
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <span
+                className="pill"
+                style={{ background: 'rgba(7, 11, 20, 0.78)', color: '#eef2f8' }}
+              >
                 {channel.guideNumber} {channel.guideName}
               </span>
+              {program.isLive && <span className="pill pill-live">Live</span>}
+              {program.isNew && <span className="pill pill-new">New</span>}
+            </div>
+            <button
+              className="btn btn-secondary"
+              style={{
+                pointerEvents: 'auto',
+                padding: 6,
+                background: 'rgba(7, 11, 20, 0.72)',
+              }}
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
               <span className="pill pill-hd">{program.category}</span>
               {program.episodeNum && <span className="pill pill-hd">{program.episodeNum}</span>}
-              {program.isNew && <span className="pill pill-new">NEW</span>}
-              {program.isLive && <span className="pill pill-live">LIVE</span>}
-              {existingRecordingStatus && (
-                <span className="pill pill-live">● {existingRecordingStatus.toUpperCase()}</span>
-              )}
+              {existingRecordingStatus && <span className="tivo-rec-badge">R</span>}
+              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                {formatTime(program.startTime)} – {formatTime(program.endTime)}
+                {program.rating ? ` · ${program.rating}` : ''}
+              </span>
             </div>
-            <h2 style={{ fontSize: 24, fontWeight: 800 }}>{program.title}</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 700 }}>{program.title}</h2>
             {program.subtitle && (
-              <div style={{ color: 'var(--accent)', fontWeight: 600, marginTop: 4 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 2 }}>
                 {program.subtitle}
               </div>
             )}
           </div>
-          <button className="btn btn-secondary" onClick={onClose} aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
 
-        <div style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-          {formatTime(program.startTime)} – {formatTime(program.endTime)}
-          {program.rating ? ` · ${program.rating}` : ''}
-        </div>
+          <p style={{ color: 'var(--text-secondary)', lineHeight: 1.5, fontSize: 13 }}>
+            {program.description || 'Over-the-air broadcast television program.'}
+          </p>
 
-        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.55, fontSize: 15 }}>
-          {program.description || 'Over-the-air broadcast television program.'}
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, paddingTop: 6 }}>
-          {isAiringNow && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
+            {isAiringNow && (
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  onClose();
+                  onWatchLive(channel);
+                }}
+              >
+                <Play size={14} /> Watch Live
+              </button>
+            )}
             <button
-              className="btn btn-primary"
+              className="btn btn-danger"
               onClick={() => {
+                onRecordEpisode(program);
                 onClose();
-                onWatchLive(channel);
               }}
             >
-              <Play size={16} /> Watch Live Now
+              <CircleDot size={14} /> {existingRecordingStatus ? 'Scheduled' : 'Record Episode'}
             </button>
-          )}
-          <button
-            className="btn btn-danger"
-            onClick={() => {
-              onRecordEpisode(program);
-              onClose();
-            }}
-          >
-            <CircleDot size={16} /> {existingRecordingStatus ? 'Already Scheduled' : 'Record Episode'}
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={() => {
-              onCreateSeriesPass(program, true);
-              onClose();
-            }}
-          >
-            <Repeat size={16} /> Series Pass (New)
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={() => {
-              onCreateSeriesPass(program, false);
-              onClose();
-            }}
-          >
-            <Repeat size={16} /> Series Pass (All)
-          </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                onCreateSeriesPass(program, true);
+                onClose();
+              }}
+            >
+              <Repeat size={14} /> OnePass (New)
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                onCreateSeriesPass(program, false);
+                onClose();
+              }}
+            >
+              <Repeat size={14} /> OnePass (All)
+            </button>
+          </div>
         </div>
       </div>
     </div>
