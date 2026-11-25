@@ -71,7 +71,6 @@ function probeBinary(bin: string, args: string[]): { available: boolean; firstLi
     const line = out.split(/\r?\n/).find((l) => l.trim().length > 0) ?? null;
     return { available: true, firstLine: line };
   } catch (err: unknown) {
-    // comskip -h exits with code 1 on some builds while still printing usage to stdout/stderr
     if (err && typeof err === 'object' && 'status' in err && (err as { code?: string }).code !== 'ENOENT') {
       const stdout = String((err as { stdout?: Buffer | string }).stdout ?? '');
       const stderr = String((err as { stderr?: Buffer | string }).stderr ?? '');
@@ -85,6 +84,33 @@ function probeBinary(bin: string, args: string[]): { available: boolean; firstLi
     }
     return { available: false, firstLine: null };
   }
+}
+
+/**
+ * Detects available hardware-accelerated H.264 encoders in FFmpeg (NVENC, Intel QSV, AMD AMF,
+ * macOS VideoToolbox, Linux VAAPI) so multi-room live transcoding offloads CPU work to GPU.
+ */
+function detectHardwareEncoder(ffmpegPath: string): string | null {
+  try {
+    const out = execFileSync(ffmpegPath, ['-hide_banner', '-encoders'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 3000,
+    });
+    const preferred = [
+      'h264_nvenc',
+      'h264_qsv',
+      'h264_amf',
+      'h264_videotoolbox',
+      'h264_vaapi',
+    ];
+    for (const enc of preferred) {
+      if (out.includes(enc)) return enc;
+    }
+  } catch {
+    // ignore probe failures
+  }
+  return null;
 }
 
 export function getLanAddresses(): string[] {
@@ -101,19 +127,39 @@ export function getLanAddresses(): string[] {
   return addresses.length > 0 ? addresses : ['127.0.0.1'];
 }
 
+// In-memory TTL cache so repeated /api/health & live tune calls NEVER block the event loop
+// with synchronous execFileSync subprocess spawns!
+let cachedCaps: { key: string; expiresAt: number; value: SystemCapabilities } | null = null;
+const CAPS_TTL_MS = 60_000;
+
+export function invalidateCapabilitiesCache(): void {
+  cachedCaps = null;
+}
+
 export function detectCapabilities(settings: DvrSettings): SystemCapabilities {
+  const cacheKey = `${settings.ffmpegPath}|${settings.ffprobePath}|${settings.comskipPath}`;
+  const now = Date.now();
+  if (cachedCaps && cachedCaps.key === cacheKey && cachedCaps.expiresAt > now) {
+    return cachedCaps.value;
+  }
+
   const ffmpeg = probeBinary(settings.ffmpegPath, ['-version']);
   const ffprobe = probeBinary(settings.ffprobePath, ['-version']);
   const comskip = probeBinary(settings.comskipPath, ['-h']);
+  const hwEncoder = ffmpeg.available ? detectHardwareEncoder(settings.ffmpegPath) : null;
 
-  return {
+  const value: SystemCapabilities = {
     ffmpegAvailable: ffmpeg.available,
     ffmpegVersion: ffmpeg.firstLine,
     ffprobeAvailable: ffprobe.available,
     comskipAvailable: comskip.available,
     comskipPath: settings.comskipPath,
+    hwEncoder,
     lanAddresses: getLanAddresses(),
     port: envConfig.port,
     discoveryUdpPort: envConfig.discoveryUdpPort,
   };
+
+  cachedCaps = { key: cacheKey, expiresAt: now + CAPS_TTL_MS, value };
+  return value;
 }

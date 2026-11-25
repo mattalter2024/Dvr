@@ -161,6 +161,7 @@ export interface SystemCapabilities {
   ffprobeAvailable: boolean;
   comskipAvailable: boolean;
   comskipPath: string;
+  hwEncoder: string | null;
   lanAddresses: string[];
   port: number;
   discoveryUdpPort: number;

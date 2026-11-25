@@ -599,6 +599,8 @@ select {
   display: flex;
   border-bottom: 1px solid var(--border-subtle);
   min-height: 66px;
+  content-visibility: auto;
+  contain-intrinsic-size: 66px;
 }
 
 .epg-track {

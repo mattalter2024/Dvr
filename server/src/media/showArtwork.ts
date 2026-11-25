@@ -126,6 +126,10 @@ function renderSceneIllustration(palette: GenrePalette, seed: number): string {
   }
 }
 
+// Bounded in-memory LRU cache so repeated show artwork requests resolve in <0.1ms
+const ARTWORK_CACHE_MAX = 256;
+const artworkCache = new Map<string, string>();
+
 /**
  * Generates a crisp, restrained 16:9 (640x360) broadcast show screenshot SVG.
  * Used as fallback whenever a recording does not yet have an FFmpeg-captured JPEG frame
@@ -140,6 +144,15 @@ export function renderShowScreenshotSvg(opts: {
   const title = (opts.title || 'OTA Broadcast').trim();
   const category = (opts.category || 'General').trim();
   const network = (opts.network || 'OTA').trim();
+  const cacheKey = `${title}|${category}|${network}|${opts.episodeNum ?? ''}`;
+  const cached = artworkCache.get(cacheKey);
+  if (cached) {
+    // Refresh LRU order
+    artworkCache.delete(cacheKey);
+    artworkCache.set(cacheKey, cached);
+    return cached;
+  }
+
   const hashHex = crypto.createHash('sha1').update(`${title}|${category}`).digest('hex');
   const seed = Number.parseInt(hashHex.slice(0, 6), 16);
   const palette = pickPalette(category, seed);
@@ -170,7 +183,7 @@ export function renderShowScreenshotSvg(opts: {
       : `<text x="36" y="278" fill="#f1f5f9" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="27" font-weight="700" letter-spacing="-0.4">${escapeXml(lines[0])}</text>
          <text x="36" y="312" fill="#f1f5f9" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="27" font-weight="700" letter-spacing="-0.4">${escapeXml(lines[1])}</text>`;
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -195,4 +208,11 @@ export function renderShowScreenshotSvg(opts: {
   ${titleSvg}
   <text x="36" y="336" fill="#94a3b8" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" letter-spacing="1.2">${metaText}</text>
 </svg>`;
+
+  if (artworkCache.size >= ARTWORK_CACHE_MAX) {
+    const oldestKey = artworkCache.keys().next().value;
+    if (oldestKey) artworkCache.delete(oldestKey);
+  }
+  artworkCache.set(cacheKey, svg);
+  return svg;
 }

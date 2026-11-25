@@ -169,9 +169,15 @@ export function VideoPlayer({
     if (target.kind === 'live' && session && session.mode === 'hls-ffmpeg') {
       if (Hls.isSupported()) {
         const hls = new Hls({
+          enableWorker: true, // Offload MPEG-TS demuxing off main UI thread
           lowLatencyMode: true,
           liveSyncDurationCount: 2,
-          backBufferLength: 120,
+          liveMaxLatencyDurationCount: 6,
+          maxBufferLength: 30,
+          maxMaxBufferLength: 60,
+          backBufferLength: 90,
+          fragLoadingMaxRetry: 6,
+          manifestLoadingMaxRetry: 6,
         });
         hls.loadSource(session.playlistUrl);
         hls.attachMedia(video);
@@ -179,9 +185,14 @@ export function VideoPlayer({
           void video.play().catch(() => {});
         });
         hls.on(Hls.Events.ERROR, (_ev, data) => {
-          if (data.fatal) {
-            setStatusMessage('Stream interrupted — retrying...');
+          if (!data.fatal) return;
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            setStatusMessage('Reconnecting live stream...');
             hls.startLoad();
+          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            hls.recoverMediaError();
+          } else {
+            setStatusMessage('Stream error — please retry channel');
           }
         });
         hlsRef.current = hls;

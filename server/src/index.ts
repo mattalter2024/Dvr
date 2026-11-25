@@ -111,14 +111,31 @@ export async function createServer() {
     }),
   );
 
-  // Serve built 10-foot Smart TV Web UI if present
+  // Serve built 10-foot Smart TV Web UI with aggressive caching on hashed assets
   if (fs.existsSync(envConfig.webDistDir)) {
-    app.use(express.static(envConfig.webDistDir));
+    app.use(
+      '/assets',
+      express.static(path.join(envConfig.webDistDir, 'assets'), {
+        maxAge: '1y',
+        immutable: true,
+      }),
+    );
+    app.use(
+      express.static(envConfig.webDistDir, {
+        etag: true,
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache');
+          }
+        },
+      }),
+    );
     app.get('*', (req, res, next) => {
       if (req.path.startsWith('/api') || req.path.startsWith('/ws')) {
         next();
         return;
       }
+      res.setHeader('Cache-Control', 'no-cache');
       res.sendFile(path.join(envConfig.webDistDir, 'index.html'));
     });
   }

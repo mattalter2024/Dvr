@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Router, type Request, type Response } from 'express';
 import { v4 as uuid } from 'uuid';
-import { detectCapabilities } from '../config.js';
+import { detectCapabilities, invalidateCapabilitiesCache } from '../config.js';
 import type { DvrDatabase } from '../db/database.js';
 import type { TunerPool } from '../tuners/tunerPool.js';
 import { discoverHdHomeRunIps, probeHdHomeRun } from '../tuners/hdhomerun.js';
@@ -69,6 +69,7 @@ export function createApiRouter(deps: ApiDeps): Router {
   router.put('/settings', (req, res) => {
     const patch = req.body as Partial<DvrSettings>;
     const updated = db.updateSettings(patch);
+    invalidateCapabilitiesCache();
 
     if (patch.enableVirtualTuner !== undefined || patch.virtualTunerCount !== undefined) {
       if (updated.enableVirtualTuner) {
@@ -303,9 +304,15 @@ export function createApiRouter(deps: ApiDeps): Router {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     } else if (safeName.endsWith('.ts')) {
       res.setHeader('Content-Type', 'video/mp2t');
-      res.setHeader('Cache-Control', 'public, max-age=60');
+      res.setHeader('Cache-Control', 'public, max-age=60, immutable');
     }
-    fs.createReadStream(filePath).pipe(res);
+    const stream = fs.createReadStream(filePath, { highWaterMark: 256 * 1024 });
+    req.on('close', () => stream.destroy());
+    stream.on('error', () => {
+      if (!res.headersSent) res.status(404).end();
+      else res.end();
+    });
+    stream.pipe(res);
   });
 
   // ==================== DVR RECORDINGS & COMMERCIAL SKIPPING ====================
@@ -479,6 +486,7 @@ export function createApiRouter(deps: ApiDeps): Router {
     const fileSize = stat.size;
     const range = req.headers.range;
     const contentType = rec.filePath.endsWith('.ts') ? 'video/mp2t' : 'video/mp4';
+    const etag = `W/"${fileSize}-${stat.mtimeMs}"`;
 
     if (range) {
       const match = range.match(/bytes=(\d+)-(\d*)/);
@@ -498,15 +506,27 @@ export function createApiRouter(deps: ApiDeps): Router {
         'Accept-Ranges': 'bytes',
         'Content-Length': chunkSize,
         'Content-Type': contentType,
+        ETag: etag,
       });
-      fs.createReadStream(rec.filePath, { start, end }).pipe(res);
+      const stream = fs.createReadStream(rec.filePath, {
+        start,
+        end,
+        highWaterMark: 512 * 1024,
+      });
+      req.on('close', () => stream.destroy());
+      stream.on('error', () => res.end());
+      stream.pipe(res);
     } else {
       res.writeHead(200, {
         'Content-Length': fileSize,
         'Accept-Ranges': 'bytes',
         'Content-Type': contentType,
+        ETag: etag,
       });
-      fs.createReadStream(rec.filePath).pipe(res);
+      const stream = fs.createReadStream(rec.filePath, { highWaterMark: 512 * 1024 });
+      req.on('close', () => stream.destroy());
+      stream.on('error', () => res.end());
+      stream.pipe(res);
     }
   });
 
@@ -657,12 +677,17 @@ async function proxyDirectHdhrStream(req: Request, res: Response, deps: ApiDeps)
       return;
     }
     res.setHeader('Content-Type', 'video/mp2t');
+    res.setHeader('Cache-Control', 'no-store');
     const reader = upstream.body.getReader();
     const pump = async () => {
-      while (true) {
+      while (!res.writableEnded) {
         const { done, value } = await reader.read();
         if (done) break;
-        if (!res.writableEnded) res.write(Buffer.from(value));
+        if (res.writableEnded) break;
+        const ok = res.write(Buffer.from(value));
+        if (!ok) {
+          await new Promise<void>((resolve) => res.once('drain', resolve));
+        }
       }
       if (!res.writableEnded) res.end();
     };

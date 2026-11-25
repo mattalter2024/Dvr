@@ -27,6 +27,9 @@ import androidx.compose.ui.unit.sp
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
+import java.io.File
 import com.airvault.dvr.tv.data.*
 import kotlinx.coroutines.launch
 
@@ -78,7 +81,18 @@ fun AirVaultTvApp() {
     val imageLoader = remember(context) {
         ImageLoader.Builder(context)
             .components { add(SvgDecoder.Factory()) }
-            .crossfade(true)
+            .memoryCache {
+                MemoryCache.Builder(context)
+                    .maxSizePercent(0.20)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(File(context.cacheDir, "show_artwork"))
+                    .maxSizeBytes(64L * 1024 * 1024)
+                    .build()
+            }
+            .crossfade(120)
             .build()
     }
 

@@ -2,6 +2,7 @@ package com.airvault.dvr.tv.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.ConnectionPool
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -13,10 +14,16 @@ import java.util.concurrent.TimeUnit
 class DvrApiClient(rawBaseUrl: String) {
     val baseUrl: String = rawBaseUrl.trimEnd('/')
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(6, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .build()
+    companion object {
+        private val sharedHttpClient = OkHttpClient.Builder()
+            .connectionPool(ConnectionPool(8, 5, TimeUnit.MINUTES))
+            .retryOnConnectionFailure(true)
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .build()
+    }
+
+    private val client = sharedHttpClient
 
     private val jsonType = "application/json; charset=utf-8".toMediaType()
 

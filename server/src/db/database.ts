@@ -155,10 +155,11 @@ export class DvrDatabase {
   private scheduleSave(): void {
     this.dirty = true;
     if (this.saveTimer) return;
+    // Coalesce frequent progress/heartbeat updates into a single atomic disk write every 1.5s
     this.saveTimer = setTimeout(() => {
       this.saveTimer = null;
       this.flushNow();
-    }, 250);
+    }, 1500);
   }
 
   flushNow(): void {
@@ -276,8 +277,20 @@ export class DvrDatabase {
   }
 
   getTuner(id: string): TunerDevice | null {
-    const list = this.listTuners();
-    return list.find((t) => t.id === id) ?? null;
+    const r = this.get<Record<string, unknown>>('SELECT * FROM tuners WHERE id = ?', [id]);
+    if (!r) return null;
+    return {
+      id: String(r.id),
+      name: String(r.name),
+      type: String(r.type) as TunerDevice['type'],
+      host: String(r.host),
+      deviceId: String(r.device_id),
+      modelNumber: String(r.model_number),
+      tunerCount: Number(r.tuner_count),
+      baseUrl: String(r.base_url),
+      enabled: Number(r.enabled) === 1,
+      lastSeenAt: String(r.last_seen_at),
+    };
   }
 
   deleteTuner(id: string): void {

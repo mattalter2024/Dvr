@@ -85,7 +85,13 @@ export function GuidePage({
     return { ms, label: formatTime(new Date(ms).toISOString()) };
   });
 
-  const nowMs = Date.now();
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const nowLineLeft = (nowMs - startMs) * pxPerMs;
   const showNowLine = nowLineLeft >= 0 && nowLineLeft <= totalWidth;
 

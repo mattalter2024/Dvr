@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import {
   api,
   type Channel,
@@ -9,13 +9,26 @@ import {
   type TunerUtilization,
 } from './api/client';
 import { TvNavRail, type NavTab } from './components/TvNavRail';
-import { VideoPlayer, type PlayerTarget } from './components/VideoPlayer';
+import type { PlayerTarget } from './components/VideoPlayer';
 import { useTvNavigation } from './hooks/useTvNavigation';
 import { HomePage } from './pages/HomePage';
 import { GuidePage } from './pages/GuidePage';
 import { RecordingsPage } from './pages/RecordingsPage';
 import { SchedulePage } from './pages/SchedulePage';
 import { SettingsPage } from './pages/SettingsPage';
+
+// Lazy-load VideoPlayer (and its ~500kB hls.js engine) only when playback actually starts!
+const VideoPlayer = lazy(() =>
+  import('./components/VideoPlayer').then((m) => ({ default: m.VideoPlayer })),
+);
+
+function upsertRecording(list: Recording[], updated: Recording): Recording[] {
+  const idx = list.findIndex((r) => r.id === updated.id);
+  if (idx === -1) return [updated, ...list];
+  const next = list.slice();
+  next[idx] = updated;
+  return next;
+}
 
 export function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('home');
@@ -32,7 +45,6 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [refreshSignal, setRefreshSignal] = useState(0);
 
-  // Enable spatial D-pad TV navigation when fullscreen player is closed
   useTvNavigation(playerTarget !== null);
 
   const notify = useCallback((msg: string) => {
@@ -70,21 +82,103 @@ export function App() {
     void refreshAll();
   }, [refreshAll]);
 
-  // Real-time WebSocket updates for whole-house live tuner & recording events
+  // Surgical WebSocket state updates + automatic reconnect with backoff (avoids HTTP storms!)
   useEffect(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-    ws.onmessage = () => {
-      void refreshAll();
+    let closed = false;
+    let ws: WebSocket | null = null;
+    let retryMs = 1000;
+    let retryTimer: number | null = null;
+
+    const connect = () => {
+      if (closed) return;
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+      ws.onopen = () => {
+        retryMs = 1000;
+      };
+
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(String(ev.data)) as { type?: string; payload?: unknown };
+          switch (msg.type) {
+            case 'tuner_update':
+              if (Array.isArray(msg.payload)) {
+                setTuners(msg.payload as TunerUtilization[]);
+              }
+              break;
+            case 'recording_started':
+            case 'recording_progress':
+            case 'recording_completed':
+            case 'recording_failed':
+              if (msg.payload && typeof msg.payload === 'object' && 'id' in msg.payload) {
+                setRecordings((prev) => upsertRecording(prev, msg.payload as Recording));
+              }
+              break;
+            case 'commercials_scanned':
+              if (msg.payload && typeof msg.payload === 'object') {
+                const { recordingId, count } = msg.payload as {
+                  recordingId?: string;
+                  count?: number;
+                };
+                if (recordingId) {
+                  setRecordings((prev) =>
+                    prev.map((r) =>
+                      r.id === recordingId
+                        ? {
+                            ...r,
+                            commercialScanStatus: 'completed',
+                            commercialCount: count ?? r.commercialCount,
+                          }
+                        : r,
+                    ),
+                  );
+                }
+              }
+              break;
+            case 'guide_updated':
+              void api.getNowPlaying().then((np) => setNowPlaying(np.items));
+              setRefreshSignal((s) => s + 1);
+              break;
+            case 'schedule_updated':
+              void Promise.all([api.getRecordings(), api.getSeriesPasses()]).then(([rec, sp]) => {
+                setRecordings(rec.recordings);
+                setSeriesPasses(sp.seriesPasses);
+                setRefreshSignal((s) => s + 1);
+              });
+              break;
+            default:
+              void refreshAll();
+          }
+        } catch {
+          // ignore malformed messages
+        }
+      };
+
+      ws.onclose = () => {
+        if (closed) return;
+        retryTimer = window.setTimeout(() => {
+          retryMs = Math.min(15_000, retryMs * 2);
+          connect();
+        }, retryMs);
+      };
     };
-    return () => ws.close();
+
+    connect();
+    return () => {
+      closed = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
+      ws?.close();
+    };
   }, [refreshAll]);
 
   const handleRecordEpisode = async (program: Program) => {
     try {
       await api.scheduleProgram(program.id);
       notify(`Scheduled recording: "${program.title}"`);
-      await refreshAll();
+      const rec = await api.getRecordings();
+      setRecordings(rec.recordings);
+      setRefreshSignal((s) => s + 1);
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Unable to schedule recording');
     }
@@ -97,10 +191,13 @@ export function App() {
         channelId: program.channelId,
         newOnly,
       });
-      notify(`Series Pass saved for "${program.title}" (${res.scheduledCount} episodes scheduled)`);
-      await refreshAll();
+      notify(`OnePass saved for "${program.title}" (${res.scheduledCount} episodes scheduled)`);
+      const [rec, sp] = await Promise.all([api.getRecordings(), api.getSeriesPasses()]);
+      setRecordings(rec.recordings);
+      setSeriesPasses(sp.seriesPasses);
+      setRefreshSignal((s) => s + 1);
     } catch (err) {
-      notify(err instanceof Error ? err.message : 'Unable to create Series Pass');
+      notify(err instanceof Error ? err.message : 'Unable to create OnePass');
     }
   };
 
@@ -111,8 +208,8 @@ export function App() {
         1,
         `${channel.guideName} 1-Min Commercial Skip Test`,
       );
-      notify(`Recording "${recording.title}" for 1 minute — commercial scan will run automatically!`);
-      await refreshAll();
+      setRecordings((prev) => upsertRecording(prev, recording));
+      notify(`Recording "${recording.title}" for 1 minute — commercial scan runs automatically`);
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Unable to start recording');
     }
@@ -180,25 +277,33 @@ export function App() {
       </main>
 
       {playerTarget && (
-        <VideoPlayer
-          target={playerTarget}
-          channels={channels}
-          autoSkipDefault={autoSkipDefault}
-          onClose={() => {
-            setPlayerTarget(null);
-            void refreshAll();
-          }}
-          onSwitchChannel={(channel) => setPlayerTarget({ kind: 'live', channel })}
-          onRecordNow={(channel) => {
-            void api
-              .recordNow(channel.id, 30)
-              .then(() => {
-                notify(`Started recording ${channel.guideNumber} ${channel.guideName}`);
-                void refreshAll();
-              })
-              .catch((err) => notify(err instanceof Error ? err.message : 'Record failed'));
-          }}
-        />
+        <Suspense
+          fallback={
+            <div className="player-overlay" style={{ display: 'grid', placeItems: 'center' }}>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 15 }}>Loading player...</span>
+            </div>
+          }
+        >
+          <VideoPlayer
+            target={playerTarget}
+            channels={channels}
+            autoSkipDefault={autoSkipDefault}
+            onClose={() => {
+              setPlayerTarget(null);
+              void api.getRecordings().then((r) => setRecordings(r.recordings));
+            }}
+            onSwitchChannel={(channel) => setPlayerTarget({ kind: 'live', channel })}
+            onRecordNow={(channel) => {
+              void api
+                .recordNow(channel.id, 30)
+                .then(({ recording }) => {
+                  setRecordings((prev) => upsertRecording(prev, recording));
+                  notify(`Started recording ${channel.guideNumber} ${channel.guideName}`);
+                })
+                .catch((err) => notify(err instanceof Error ? err.message : 'Record failed'));
+            }}
+          />
+        </Suspense>
       )}
 
       {toast && <div className="toast-banner">{toast}</div>}
