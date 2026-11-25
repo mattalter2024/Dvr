@@ -305,8 +305,13 @@ export function App() {
             channels={channels}
             autoSkipDefault={autoSkipDefault}
             onClose={() => {
+              const wasLive = playerTarget?.kind === 'live';
               setPlayerTarget(null);
-              void api.getRecordings().then((r) => setRecordings(r.recordings));
+              if (wasLive) {
+                void api.getNowPlaying().then((np) => setNowPlaying(np.items));
+              } else {
+                void api.getRecordings().then((r) => setRecordings(r.recordings));
+              }
             }}
             onSwitchChannel={(channel) => setPlayerTarget({ kind: 'live', channel })}
             onRecordNow={(channel) => {

@@ -59,6 +59,8 @@ export class HlsLiveManager {
    * Multiple TVs watching the same channel share a single tuner slot and FFmpeg pipeline.
    */
   async startOrJoinChannel(channelId: string): Promise<LiveSession> {
+    this.db.recordChannelWatch(channelId);
+
     const existing = this.sessionsByChannel.get(channelId);
     if (existing) {
       existing.lastHeartbeatMs = Date.now();

@@ -37,6 +37,8 @@ export interface Channel {
   hd: boolean;
   favorite: boolean;
   enabled: boolean;
+  watchCount?: number;
+  lastWatchedAt?: string | null;
 }
 
 export interface Program {

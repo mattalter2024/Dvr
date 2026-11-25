@@ -65,6 +65,8 @@ export class DvrDatabase {
         hd INTEGER NOT NULL DEFAULT 1,
         favorite INTEGER NOT NULL DEFAULT 0,
         enabled INTEGER NOT NULL DEFAULT 1,
+        watch_count INTEGER NOT NULL DEFAULT 0,
+        last_watched_at TEXT,
         FOREIGN KEY (tuner_id) REFERENCES tuners(id) ON DELETE CASCADE
       );
       CREATE INDEX IF NOT EXISTS idx_channels_guide_number ON channels(guide_number);
@@ -166,6 +168,15 @@ export class DvrDatabase {
         sort_order INTEGER NOT NULL DEFAULT 100
       );
     `);
+
+    // Safe migrations for existing databases created prior to watch frequency tracking
+    const chCols = this.all<{ name: string }>('PRAGMA table_info(channels)').map((c) => c.name);
+    if (!chCols.includes('watch_count')) {
+      this.db.run('ALTER TABLE channels ADD COLUMN watch_count INTEGER NOT NULL DEFAULT 0');
+    }
+    if (!chCols.includes('last_watched_at')) {
+      this.db.run('ALTER TABLE channels ADD COLUMN last_watched_at TEXT');
+    }
   }
 
   private scheduleSave(): void {
@@ -356,7 +367,16 @@ export class DvrDatabase {
       hd: Number(r.hd) === 1,
       favorite: Number(r.favorite) === 1,
       enabled: Number(r.enabled) === 1,
+      watchCount: Number(r.watch_count ?? 0),
+      lastWatchedAt: r.last_watched_at ? String(r.last_watched_at) : null,
     };
+  }
+
+  recordChannelWatch(channelId: string): void {
+    this.run(
+      'UPDATE channels SET watch_count = COALESCE(watch_count, 0) + 1, last_watched_at = ? WHERE id = ?',
+      [new Date().toISOString(), channelId],
+    );
   }
 
   listChannels(includeDisabled = false): Channel[] {
